@@ -11,6 +11,7 @@ import webbrowser
 import subprocess
 from urllib.parse import quote_plus
 import urllib.request as _urllib
+import supabase_client as sb
 
 try:
     import yt_dlp
@@ -30,6 +31,9 @@ load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+MEM0_USER_ID = os.getenv("MEM0_USER_ID") or "JoãoZacche"
+JARVIS_USER_ID = os.getenv("JARVIS_USER_ID") or MEM0_USER_ID
 
 # ─────────────────────────────────────────
 # CHROME + CDP
@@ -97,6 +101,7 @@ class Assistant(Agent, llm.ToolContext):
             chat_ctx=chat_ctx,
         )
         self.jarvis_control = JarvisControl()
+        self.jarvis_user_id = JARVIS_USER_ID
 
     # ────────────────────────────────
     # MÍDIA E WEB
@@ -273,6 +278,99 @@ class Assistant(Agent, llm.ToolContext):
         """Abre aplicativos conhecidos pelo nome (ex: 'spotify', 'vscode', 'calculadora')."""
         return self.jarvis_control.abrir_aplicativo(nome_app)
 
+    @agents.function_tool
+    async def criar_tarefa_supabase(self, titulo: str, descricao: str = "", data_vencimento: str = None, prioridade: str = "média"):
+        """Cria uma tarefa no Supabase com título, descrição e data de vencimento opcional."""
+        try:
+            tarefas = await sb.criar_tarefa(
+                titulo=titulo,
+                descricao=descricao or None,
+                due_date=data_vencimento,
+                prioridade=prioridade,
+                user_id=self.jarvis_user_id,
+            )
+            if tarefas:
+                return f"Tarefa criada: {tarefas[0].get('title')}"
+            return "Não consegui criar a tarefa no Supabase."
+        except Exception as e:
+            return f"Erro ao criar tarefa no Supabase: {e}"
+
+    @agents.function_tool
+    async def criar_lembrete_supabase(self, texto: str, quando: str, titulo: str = "Lembrete"):
+        """Cria um lembrete no Supabase para uma data/hora específica."""
+        try:
+            lembretes = await sb.criar_lembrete(
+                titulo=titulo,
+                remind_at=quando,
+                descricao=texto,
+                user_id=self.jarvis_user_id,
+            )
+            if lembretes:
+                return f"Lembrete criado: {lembretes[0].get('title')}"
+            return "Não consegui criar o lembrete no Supabase."
+        except Exception as e:
+            return f"Erro ao criar lembrete no Supabase: {e}"
+
+    @agents.function_tool
+    async def criar_nota_rapida(self, titulo: str, conteudo: str):
+        """Cria uma nota rápida no Supabase."""
+        try:
+            notas = await sb.criar_nota(
+                titulo=titulo,
+                conteudo=conteudo,
+                user_id=self.jarvis_user_id,
+            )
+            if notas:
+                return f"Nota salva: {notas[0].get('title')}"
+            return "Não consegui salvar a nota no Supabase."
+        except Exception as e:
+            return f"Erro ao salvar nota no Supabase: {e}"
+
+    @agents.function_tool
+    async def criar_contato_supabase(self, nome: str, email: str = "", telefone: str = ""):
+        """Cria um contato no Supabase."""
+        try:
+            contatos = await sb.criar_contato(
+                nome=nome,
+                email=email or None,
+                telefone=telefone or None,
+                user_id=self.jarvis_user_id,
+            )
+            if contatos:
+                return f"Contato criado: {contatos[0].get('name')}"
+            return "Não consegui criar o contato no Supabase."
+        except Exception as e:
+            return f"Erro ao criar contato no Supabase: {e}"
+
+    @agents.function_tool
+    async def registrar_gasto(self, descricao: str, valor: float, categoria: str = "geral"):
+        """Registra uma transação de gasto no Supabase."""
+        try:
+            transacoes = await sb.registrar_transacao(
+                descricao=descricao,
+                valor=float(valor),
+                tipo="despesa",
+                categoria=categoria,
+                user_id=self.jarvis_user_id,
+            )
+            if transacoes:
+                return f"Gasto registrado: {transacoes[0].get('description')}"
+            return "Não consegui registrar o gasto no Supabase."
+        except Exception as e:
+            return f"Erro ao registrar gasto no Supabase: {e}"
+
+    @agents.function_tool
+    async def ver_agenda_hoje(self):
+        """Lista os eventos de hoje do usuário a partir do Supabase."""
+        try:
+            eventos = await sb.listar_eventos_hoje(user_id=self.jarvis_user_id)
+            if not eventos:
+                return "Você não tem eventos agendados para hoje."
+
+            linhas = [f"- {evento.get('title')}" for evento in eventos]
+            return "Eventos de hoje:\n" + "\n".join(linhas)
+        except Exception as e:
+            return f"Erro ao listar agenda de hoje no Supabase: {e}"
 
 # ─────────────────────────────────────────
 # ENTRYPOINT
@@ -281,9 +379,15 @@ class Assistant(Agent, llm.ToolContext):
 async def entrypoint(ctx: agents.JobContext):
 
     mem0_client = AsyncMemoryClient()
-    user_id = "PedroLucas"
+    user_id = MEM0_USER_ID
 
     await ctx.connect()
+
+    voice_session_id = None
+    try:
+        voice_session_id = await sb.iniciar_sessao_voz(user_id=JARVIS_USER_ID)
+    except Exception as e:
+        logger.warning(f"Não foi possível iniciar sessão de voz no Supabase: {e}")
 
     session = AgentSession()
     agent = Assistant(chat_ctx=ChatContext())
@@ -340,6 +444,9 @@ async def entrypoint(ctx: agents.JobContext):
     # ── Salvar Memória ao Desligar ───────────────────────
     async def shutdown_hook():
         try:
+            if voice_session_id:
+                await sb.encerrar_sessao_voz(session_id=voice_session_id, user_id=JARVIS_USER_ID)
+
             msgs = []
             for item in session._agent.chat_ctx.items:
                 if not hasattr(item, "content") or not item.content:

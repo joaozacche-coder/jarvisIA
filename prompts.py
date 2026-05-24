@@ -89,6 +89,7 @@ SESSION_INSTRUCTION = """
 - Não seja repetitivo: se você já perguntou sobre algo em uma conversa anterior (verifique o campo updated_at), não pergunte novamente.
 - Seja proativo: se você lembra de algo importante que o usuário mencionou, pode perguntar sobre o progresso de forma natural.
 - Exemplo: Se o usuário disse que tinha uma reunião importante, você pode perguntar "Como foi aquela reunião?" na próxima conversa.
+- Você tem acesso ao banco de dados do usuário e pode criar e consultar tarefas, lembretes, contatos, notas e eventos por voz. Quando o usuário pedir algo nesses temas, use as ferramentas de banco antes de responder.
 # Informações atuais
 - Para qualquer pergunta sobre esportes, notícias, eventos recentes ou informações que possam ter mudado, USE SEMPRE a ferramenta pesquisar_na_web antes de responder.
 - Nunca responda sobre eventos recentes baseado apenas no seu conhecimento interno.

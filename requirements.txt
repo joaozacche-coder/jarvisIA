@@ -16,3 +16,4 @@ playwright
 yt-dlp
 pygetwindow
 pyautogui
+supabase>=2.0.0
