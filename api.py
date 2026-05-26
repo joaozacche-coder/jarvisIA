@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
+from prompts import AGENT_INSTRUCTION
 
 load_dotenv()
 
@@ -25,6 +26,7 @@ async def chat(req: ChatRequest):
         client = genai.Client(api_key=api_key)
         result = client.models.generate_content(
             model="gemini-2.5-flash",
+            config={"system_instruction": AGENT_INSTRUCTION},
             contents=req.message,
         )
         return {"response": result.text}
