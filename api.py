@@ -11,6 +11,38 @@ load_dotenv()
 
 app = FastAPI()
 
+PROACTIVE_RULES = """
+REGRAS DE PROATIVIDADE — SEMPRE SIGA:
+
+1. DETECÇÃO AUTOMÁTICA DE TAREFAS:
+Se o usuário mencionar algo que precisa ser feito
+(ex: "preciso ligar pro cliente", "tenho que revisar o código",
+"não esquecer de pagar a conta") → cria a tarefa no Supabase
+automaticamente e confirma: "Anotei como tarefa: [título]"
+
+2. ACOMPANHAMENTO DE TAREFAS PENDENTES:
+A cada conversa, busca tarefas pendentes no Supabase e:
+- Se uma tarefa está vencida → alerta o usuário
+- Se uma tarefa está próxima do prazo → lembra proativamente
+- Se o usuário diz "terminei X" ou "fiz X" → marca como
+  concluída no Supabase automaticamente
+
+3. DETECÇÃO DE GASTOS:
+Se o usuário mencionar que gastou dinheiro
+(ex: "fui no mercado", "paguei R$50 de uber") →
+registra a transação automaticamente
+
+4. DETECÇÃO DE LEMBRETES:
+Se o usuário mencionar datas ou horários
+(ex: "reunião amanhã às 14h", "dentista sexta") →
+cria lembrete automaticamente
+
+5. NUNCA PERGUNTE SE DEVE CRIAR — APENAS CRIE E CONFIRME.
+"""
+
+FULL_INSTRUCTION = AGENT_INSTRUCTION + PROACTIVE_RULES
+
+
 class ChatRequest(BaseModel):
     message: str
     user_id: str = "JoaoZacche"
@@ -67,6 +99,17 @@ TOOLS = [
                     "properties": {},
                 },
             },
+            {
+                "name": "marcar_tarefa_concluida",
+                "description": "Marca uma tarefa como concluída no Supabase",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "string", "description": "ID da tarefa a concluir"},
+                    },
+                    "required": ["task_id"],
+                },
+            },
         ]
     }
 ]
@@ -109,6 +152,10 @@ async def _executar_ferramenta(fn: str, args: dict, user_id: str) -> str:
         lista = "\n".join(f"- {e.get('title')}" for e in eventos)
         return f"Seus eventos hoje:\n{lista}"
 
+    if fn == "marcar_tarefa_concluida":
+        ok = await sb.concluir_tarefa(task_id=args["task_id"], user_id=user_id)
+        return "Tarefa marcada como concluída!" if ok else "Não encontrei essa tarefa."
+
     return "Ferramenta não reconhecida."
 
 
@@ -137,9 +184,26 @@ async def chat(req: ChatRequest):
             items = [r.get("memory") or r.get("text") for r in results if isinstance(r, dict)]
             memory_text = "\n".join(f"- {m}" for m in items if m)
 
-        system = AGENT_INSTRUCTION
+        # Busca tarefas pendentes para contexto proativo
+        tarefas_pendentes = ""
+        try:
+            tarefas = await sb.listar_tarefas(user_id=user_id)
+            pendentes = [t for t in tarefas if t.get("status") not in ("concluida", "cancelada")]
+            if pendentes:
+                linhas = [
+                    f"- [id:{t.get('id')}] {t.get('title')}"
+                    + (f" (vence: {t.get('due_date')})" if t.get("due_date") else "")
+                    for t in pendentes
+                ]
+                tarefas_pendentes = "\n".join(linhas)
+        except Exception:
+            pass
+
+        system = FULL_INSTRUCTION
         if memory_text:
             system += f"\n\n[Memórias do usuário]\n{memory_text}"
+        if tarefas_pendentes:
+            system += f"\n\n[Tarefas pendentes do usuário]\n{tarefas_pendentes}"
 
         gemini = genai.Client(api_key=api_key)
         result = gemini.models.generate_content(
