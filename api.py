@@ -111,6 +111,103 @@ TOOLS = [
                     "required": ["task_id"],
                 },
             },
+            {
+                "name": "listar_tarefas",
+                "description": "Lista tarefas do usuário, com filtros opcionais de status e projeto",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "status": {"type": "string", "description": "pendente, concluida ou cancelada"},
+                        "projeto_id": {"type": "string"},
+                    },
+                },
+            },
+            {
+                "name": "criar_projeto",
+                "description": "Cria um projeto no Supabase",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "titulo": {"type": "string"},
+                        "descricao": {"type": "string"},
+                        "prazo": {"type": "string"},
+                    },
+                    "required": ["titulo"],
+                },
+            },
+            {
+                "name": "listar_projetos",
+                "description": "Lista todos os projetos do usuário",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+            {
+                "name": "criar_habito",
+                "description": "Cria um hábito no Supabase",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "titulo": {"type": "string"},
+                        "frequencia": {"type": "string", "description": "ex: daily, weekly, weekdays"},
+                    },
+                    "required": ["titulo", "frequencia"],
+                },
+            },
+            {
+                "name": "registrar_checkin",
+                "description": "Registra check-in de um hábito",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "habito_id": {"type": "string"},
+                    },
+                    "required": ["habito_id"],
+                },
+            },
+            {
+                "name": "listar_habitos",
+                "description": "Lista hábitos do usuário",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+            {
+                "name": "criar_meta",
+                "description": "Cria uma meta no Supabase",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "titulo": {"type": "string"},
+                        "valor_alvo": {"type": "number"},
+                        "valor_atual": {"type": "number"},
+                        "prazo": {"type": "string"},
+                    },
+                    "required": ["titulo", "valor_alvo"],
+                },
+            },
+            {
+                "name": "atualizar_progresso_meta",
+                "description": "Atualiza o valor atual de uma meta",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "goal_id": {"type": "string"},
+                        "valor_atual": {"type": "number"},
+                    },
+                    "required": ["goal_id", "valor_atual"],
+                },
+            },
+            {
+                "name": "listar_metas",
+                "description": "Lista metas do usuário",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
         ]
     }
 ]
@@ -156,6 +253,87 @@ async def _executar_ferramenta(fn: str, args: dict, user_id: str) -> str:
     if fn == "marcar_tarefa_concluida":
         ok = await sb.concluir_tarefa(task_id=args["task_id"], user_id=user_id)
         return "Tarefa marcada como concluída!" if ok else "Não encontrei essa tarefa."
+
+    if fn == "listar_tarefas":
+        tarefas = await sb.listar_tarefas(
+            user_id=user_id,
+            status=args.get("status"),
+            projeto_id=args.get("projeto_id"),
+        )
+        if not tarefas:
+            return "Nenhuma tarefa encontrada."
+        linhas = [
+            f"- [{t.get('status')}] {t.get('title')}"
+            + (f" (vence: {t.get('due_date')})" if t.get("due_date") else "")
+            for t in tarefas
+        ]
+        return "Suas tarefas:\n" + "\n".join(linhas)
+
+    if fn == "criar_projeto":
+        await sb.criar_projeto(
+            titulo=args["titulo"],
+            descricao=args.get("descricao"),
+            prazo=args.get("prazo"),
+            user_id=user_id,
+        )
+        return f"Projeto '{args['titulo']}' criado!"
+
+    if fn == "listar_projetos":
+        projetos = await sb.listar_projetos(user_id=user_id)
+        if not projetos:
+            return "Nenhum projeto encontrado."
+        linhas = [
+            f"- [{p.get('status')}] {p.get('title')} ({p.get('progress', 0)}%)"
+            for p in projetos
+        ]
+        return "Seus projetos:\n" + "\n".join(linhas)
+
+    if fn == "criar_habito":
+        await sb.criar_habito(
+            titulo=args["titulo"],
+            frequencia=args["frequencia"],
+            user_id=user_id,
+        )
+        return f"Hábito '{args['titulo']}' criado!"
+
+    if fn == "registrar_checkin":
+        await sb.registrar_checkin(habito_id=args["habito_id"], user_id=user_id)
+        return "Check-in registrado!"
+
+    if fn == "listar_habitos":
+        habitos = await sb.listar_habitos(user_id=user_id)
+        if not habitos:
+            return "Nenhum hábito encontrado."
+        linhas = [f"- {h.get('title')} ({h.get('frequency')})" for h in habitos]
+        return "Seus hábitos:\n" + "\n".join(linhas)
+
+    if fn == "criar_meta":
+        await sb.criar_meta(
+            titulo=args["titulo"],
+            valor_alvo=float(args["valor_alvo"]),
+            valor_atual=float(args.get("valor_atual", 0)),
+            prazo=args.get("prazo"),
+            user_id=user_id,
+        )
+        return f"Meta '{args['titulo']}' criada!"
+
+    if fn == "atualizar_progresso_meta":
+        await sb.atualizar_progresso_meta(
+            goal_id=args["goal_id"],
+            valor_atual=float(args["valor_atual"]),
+        )
+        return "Progresso da meta atualizado!"
+
+    if fn == "listar_metas":
+        metas = await sb.listar_metas(user_id=user_id)
+        if not metas:
+            return "Nenhuma meta encontrada."
+        linhas = [
+            f"- {m.get('title')}: {m.get('current_value')}/{m.get('target_value')}"
+            + (f" (prazo: {m.get('deadline')})" if m.get("deadline") else "")
+            for m in metas
+        ]
+        return "Suas metas:\n" + "\n".join(linhas)
 
     return "Ferramenta não reconhecida."
 
