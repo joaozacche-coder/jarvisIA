@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+google-genai
 livekit-agents
 livekit-plugins-openai
 livekit-plugins-silero
