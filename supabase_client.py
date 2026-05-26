@@ -127,15 +127,22 @@ async def criar_tarefa(
     return getattr(response, "data", None) or []
 
 
-async def listar_tarefas(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+async def listar_tarefas(
+    user_id: Optional[str] = None,
+    status: Optional[str] = None,
+    projeto_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     client = _get_client()
-    response = await _execute_sync(
-        lambda: client.table("tasks")
-        .select("*")
-        .eq("user_id", user_id or _get_user_id())
-        .order("due_date", desc=False)
-        .execute()
-    )
+
+    def _query():
+        q = client.table("tasks").select("*").eq("user_id", user_id or _get_user_id())
+        if status:
+            q = q.eq("status", status)
+        if projeto_id:
+            q = q.eq("project_id", projeto_id)
+        return q.order("due_date", desc=False).execute()
+
+    response = await _execute_sync(_query)
     return getattr(response, "data", None) or []
 
 
@@ -357,3 +364,345 @@ async def salvar_conversa_ia(
         await _execute_sync(lambda: client.table("ai_messages").insert(message_payloads).execute())
 
     return {"conversation": conversation, "messages": message_payloads}
+
+
+# ─────────────────────────────────────────
+# TAREFAS — funções faltantes
+# ─────────────────────────────────────────
+
+async def atualizar_tarefa(
+    task_id: str,
+    titulo: Optional[str] = None,
+    status: Optional[str] = None,
+    prioridade: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> bool:
+    client = _get_client()
+    updates = _clean_payload({"title": titulo, "status": status, "priority": prioridade})
+    if not updates:
+        return False
+    response = await _execute_sync(
+        lambda: client.table("tasks")
+        .update(updates)
+        .eq("id", task_id)
+        .eq("user_id", user_id or _get_user_id())
+        .execute()
+    )
+    return bool(getattr(response, "data", None))
+
+
+async def deletar_tarefa(task_id: str, user_id: Optional[str] = None) -> bool:
+    client = _get_client()
+    response = await _execute_sync(
+        lambda: client.table("tasks")
+        .delete()
+        .eq("id", task_id)
+        .eq("user_id", user_id or _get_user_id())
+        .execute()
+    )
+    return bool(getattr(response, "data", None))
+
+
+async def marcar_tarefa_concluida(task_id: str, user_id: Optional[str] = None) -> bool:
+    return await concluir_tarefa(task_id=task_id, user_id=user_id)
+
+
+# ─────────────────────────────────────────
+# AGENDA — funções faltantes
+# ─────────────────────────────────────────
+
+async def listar_eventos(
+    user_id: Optional[str] = None,
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    client = _get_client()
+
+    def _query():
+        q = client.table("events").select("*").eq("user_id", user_id or _get_user_id())
+        if data_inicio:
+            q = q.gte("start_time", data_inicio)
+        if data_fim:
+            q = q.lte("start_time", data_fim)
+        return q.order("start_time", desc=False).execute()
+
+    response = await _execute_sync(_query)
+    return getattr(response, "data", None) or []
+
+
+async def deletar_evento(event_id: str, user_id: Optional[str] = None) -> bool:
+    client = _get_client()
+    response = await _execute_sync(
+        lambda: client.table("events")
+        .delete()
+        .eq("id", event_id)
+        .eq("user_id", user_id or _get_user_id())
+        .execute()
+    )
+    return bool(getattr(response, "data", None))
+
+
+# ─────────────────────────────────────────
+# FINANÇAS — funções faltantes
+# ─────────────────────────────────────────
+
+async def listar_transacoes(
+    user_id: Optional[str] = None,
+    categoria: Optional[str] = None,
+    tipo: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    client = _get_client()
+
+    def _query():
+        q = client.table("transactions").select("*").eq("user_id", user_id or _get_user_id())
+        if categoria:
+            q = q.eq("category", categoria)
+        if tipo:
+            q = q.eq("type", tipo)
+        return q.order("occurred_at", desc=True).execute()
+
+    response = await _execute_sync(_query)
+    return getattr(response, "data", None) or []
+
+
+async def resumo_financeiro(user_id: Optional[str] = None) -> Dict[str, Any]:
+    transacoes = await listar_transacoes(user_id=user_id)
+    receitas = sum(float(t.get("amount", 0)) for t in transacoes if t.get("type") == "receita")
+    despesas = sum(float(t.get("amount", 0)) for t in transacoes if t.get("type") == "despesa")
+    por_categoria: Dict[str, float] = {}
+    for t in transacoes:
+        cat = t.get("category") or "Outros"
+        por_categoria[cat] = por_categoria.get(cat, 0) + float(t.get("amount", 0))
+    return {
+        "receitas": receitas,
+        "despesas": despesas,
+        "saldo": receitas - despesas,
+        "por_categoria": por_categoria,
+        "total_transacoes": len(transacoes),
+    }
+
+
+# ─────────────────────────────────────────
+# CONTATOS — funções faltantes
+# ─────────────────────────────────────────
+
+async def listar_contatos(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    client = _get_client()
+    response = await _execute_sync(
+        lambda: client.table("contacts")
+        .select("*")
+        .eq("user_id", user_id or _get_user_id())
+        .order("name", desc=False)
+        .execute()
+    )
+    return getattr(response, "data", None) or []
+
+
+async def atualizar_contato(
+    contact_id: str,
+    nome: Optional[str] = None,
+    email: Optional[str] = None,
+    telefone: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> bool:
+    client = _get_client()
+    updates = _clean_payload({"name": nome, "email": email, "phone": telefone})
+    if not updates:
+        return False
+    response = await _execute_sync(
+        lambda: client.table("contacts")
+        .update(updates)
+        .eq("id", contact_id)
+        .eq("user_id", user_id or _get_user_id())
+        .execute()
+    )
+    return bool(getattr(response, "data", None))
+
+
+# ─────────────────────────────────────────
+# NOTAS — funções faltantes
+# ─────────────────────────────────────────
+
+async def listar_notas(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    client = _get_client()
+    response = await _execute_sync(
+        lambda: client.table("notes")
+        .select("*")
+        .eq("user_id", user_id or _get_user_id())
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return getattr(response, "data", None) or []
+
+
+async def buscar_nota(query: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    notas = await listar_notas(user_id=user_id)
+    q = query.lower()
+    return [
+        n for n in notas
+        if q in str(n.get("title", "")).lower() or q in str(n.get("content", "")).lower()
+    ]
+
+
+async def atualizar_nota(
+    note_id: str,
+    titulo: Optional[str] = None,
+    conteudo: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> bool:
+    client = _get_client()
+    updates = _clean_payload({"title": titulo, "content": conteudo})
+    if not updates:
+        return False
+    response = await _execute_sync(
+        lambda: client.table("notes")
+        .update(updates)
+        .eq("id", note_id)
+        .eq("user_id", user_id or _get_user_id())
+        .execute()
+    )
+    return bool(getattr(response, "data", None))
+
+
+# ─────────────────────────────────────────
+# PROJETOS (tabela nova: projects)
+# ─────────────────────────────────────────
+
+async def criar_projeto(
+    titulo: str,
+    descricao: Optional[str] = None,
+    prazo: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    client = _get_client()
+    payload = _clean_payload({
+        "title": titulo,
+        "description": descricao,
+        "deadline": prazo,
+        "status": "ativo",
+        "progress": 0,
+        "user_id": user_id or _get_user_id(),
+    })
+    response = await _execute_sync(lambda: client.table("projects").insert(payload).execute())
+    return getattr(response, "data", None) or []
+
+
+async def listar_projetos(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    client = _get_client()
+    response = await _execute_sync(
+        lambda: client.table("projects")
+        .select("*")
+        .eq("user_id", user_id or _get_user_id())
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return getattr(response, "data", None) or []
+
+
+async def atualizar_projeto(
+    project_id: str,
+    titulo: Optional[str] = None,
+    status: Optional[str] = None,
+    progresso: Optional[int] = None,
+    user_id: Optional[str] = None,
+) -> bool:
+    client = _get_client()
+    updates = _clean_payload({"title": titulo, "status": status, "progress": progresso})
+    if not updates:
+        return False
+    response = await _execute_sync(
+        lambda: client.table("projects")
+        .update(updates)
+        .eq("id", project_id)
+        .eq("user_id", user_id or _get_user_id())
+        .execute()
+    )
+    return bool(getattr(response, "data", None))
+
+
+# ─────────────────────────────────────────
+# HÁBITOS (tabelas novas: habits, habit_checkins)
+# ─────────────────────────────────────────
+
+async def criar_habito(
+    titulo: str,
+    frequencia: str,
+    user_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    client = _get_client()
+    payload = _clean_payload({
+        "title": titulo,
+        "frequency": frequencia,
+        "user_id": user_id or _get_user_id(),
+    })
+    response = await _execute_sync(lambda: client.table("habits").insert(payload).execute())
+    return getattr(response, "data", None) or []
+
+
+async def registrar_checkin(habito_id: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    client = _get_client()
+    payload = {
+        "habit_id": habito_id,
+        "user_id": user_id or _get_user_id(),
+        "checked_at": _now_iso(),
+    }
+    response = await _execute_sync(lambda: client.table("habit_checkins").insert(payload).execute())
+    return getattr(response, "data", None) or []
+
+
+async def listar_habitos(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    client = _get_client()
+    response = await _execute_sync(
+        lambda: client.table("habits")
+        .select("*")
+        .eq("user_id", user_id or _get_user_id())
+        .order("created_at", desc=False)
+        .execute()
+    )
+    return getattr(response, "data", None) or []
+
+
+# ─────────────────────────────────────────
+# METAS (tabela nova: goals)
+# ─────────────────────────────────────────
+
+async def criar_meta(
+    titulo: str,
+    valor_alvo: float,
+    valor_atual: float = 0,
+    prazo: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    client = _get_client()
+    payload = _clean_payload({
+        "title": titulo,
+        "target_value": valor_alvo,
+        "current_value": valor_atual,
+        "deadline": prazo,
+        "user_id": user_id or _get_user_id(),
+    })
+    response = await _execute_sync(lambda: client.table("goals").insert(payload).execute())
+    return getattr(response, "data", None) or []
+
+
+async def atualizar_progresso_meta(goal_id: str, valor_atual: float) -> bool:
+    client = _get_client()
+    response = await _execute_sync(
+        lambda: client.table("goals")
+        .update({"current_value": valor_atual})
+        .eq("id", goal_id)
+        .execute()
+    )
+    return bool(getattr(response, "data", None))
+
+
+async def listar_metas(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    client = _get_client()
+    response = await _execute_sync(
+        lambda: client.table("goals")
+        .select("*")
+        .eq("user_id", user_id or _get_user_id())
+        .order("deadline", desc=False)
+        .execute()
+    )
+    return getattr(response, "data", None) or []
