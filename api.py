@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
 import asyncio
+from datetime import datetime
+import pytz
 from dotenv import load_dotenv
 from google import genai
 from mem0 import AsyncMemoryClient
@@ -310,7 +312,11 @@ async def chat(req: ChatRequest):
             ]
             tarefas_pendentes = "\n".join(linhas)
 
-        system = FULL_INSTRUCTION
+        tz = pytz.timezone("America/Sao_Paulo")
+        agora = datetime.now(tz)
+        data_hora = agora.strftime("%A, %d de %B de %Y, %H:%M")
+
+        system = FULL_INSTRUCTION + f"\n\nDATA E HORA ATUAL: {data_hora}"
         if memory_text:
             system += f"\n\n[Memórias do usuário]\n{memory_text}"
         if tarefas_pendentes:
