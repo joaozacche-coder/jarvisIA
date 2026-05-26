@@ -39,6 +39,9 @@ Se o usuário mencionar datas ou horários
 cria lembrete automaticamente
 
 5. NUNCA PERGUNTE SE DEVE CRIAR — APENAS CRIE E CONFIRME.
+
+TIPOS DE ENTRY DISPONÍVEIS:
+task, note, event, project, habit, goal, transaction, reminder, contact
 """
 
 FULL_INSTRUCTION = AGENT_INSTRUCTION + PROACTIVE_RULES
@@ -49,163 +52,103 @@ class ChatRequest(BaseModel):
     user_id: str = "JoaoZacche"
 
 
+# ─────────────────────────────────────────
+# 6 FERRAMENTAS UNIVERSAIS
+# ─────────────────────────────────────────
+
 TOOLS = [
     {
         "function_declarations": [
             {
-                "name": "criar_tarefa",
-                "description": "Cria uma tarefa no Supabase",
+                "name": "criar_entry",
+                "description": (
+                    "Cria qualquer tipo de entrada no sistema. "
+                    "Types: task (tarefa), note (nota), event (evento), project (projeto), "
+                    "habit (hábito), goal (meta), transaction (gasto/receita), "
+                    "reminder (lembrete), contact (contato)."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "titulo": {"type": "string"},
+                        "type": {"type": "string"},
+                        "title": {"type": "string"},
                         "descricao": {"type": "string"},
-                        "data_vencimento": {"type": "string"},
-                        "prioridade": {"type": "string"},
+                        "due_date": {"type": "string", "description": "ISO 8601"},
+                        "date": {"type": "string", "description": "ISO 8601 — data principal (ex: start_time de eventos)"},
+                        "tags": {"type": "array", "items": {"type": "string"}},
+                        "amount": {"type": "number", "description": "Para transaction: valor em reais"},
+                        "transaction_type": {"type": "string", "description": "receita ou despesa"},
+                        "category": {"type": "string", "description": "Para transaction: categoria"},
+                        "frequency": {"type": "string", "description": "Para habit: daily, weekly, weekdays"},
+                        "target_value": {"type": "number", "description": "Para goal: valor alvo"},
+                        "email": {"type": "string", "description": "Para contact"},
+                        "phone": {"type": "string", "description": "Para contact"},
                     },
-                    "required": ["titulo"],
+                    "required": ["type", "title"],
                 },
             },
             {
-                "name": "criar_lembrete",
-                "description": "Cria um lembrete no Supabase",
+                "name": "listar_entries",
+                "description": "Lista entradas por tipo e filtros opcionais.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "titulo": {"type": "string"},
-                        "texto": {"type": "string"},
-                        "quando": {"type": "string"},
+                        "type": {"type": "string"},
+                        "status": {"type": "string", "description": "active, done, cancelled"},
+                        "tags": {"type": "array", "items": {"type": "string"}},
+                        "limit": {"type": "integer"},
                     },
-                    "required": ["quando"],
                 },
             },
             {
-                "name": "registrar_gasto",
-                "description": "Registra um gasto no Supabase",
+                "name": "atualizar_entry",
+                "description": "Atualiza título, status, descrição ou prazo de uma entrada.",
                 "parameters": {
                     "type": "object",
                     "properties": {
+                        "entry_id": {"type": "string"},
+                        "title": {"type": "string"},
+                        "status": {"type": "string", "description": "active, done, cancelled"},
                         "descricao": {"type": "string"},
-                        "valor": {"type": "number"},
-                        "categoria": {"type": "string"},
+                        "due_date": {"type": "string"},
+                        "valor_atual": {"type": "number", "description": "Para goal: atualiza current_value"},
                     },
-                    "required": ["descricao", "valor"],
+                    "required": ["entry_id"],
                 },
             },
             {
-                "name": "ver_agenda_hoje",
-                "description": "Lista eventos de hoje",
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-            {
-                "name": "marcar_tarefa_concluida",
-                "description": "Marca uma tarefa como concluída no Supabase",
+                "name": "deletar_entry",
+                "description": "Deleta uma entrada pelo ID.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "task_id": {"type": "string", "description": "ID da tarefa a concluir"},
+                        "entry_id": {"type": "string"},
                     },
-                    "required": ["task_id"],
+                    "required": ["entry_id"],
                 },
             },
             {
-                "name": "listar_tarefas",
-                "description": "Lista tarefas do usuário, com filtros opcionais de status e projeto",
+                "name": "buscar_entries",
+                "description": "Busca entradas por texto no título.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "status": {"type": "string", "description": "pendente, concluida ou cancelada"},
-                        "projeto_id": {"type": "string"},
+                        "query": {"type": "string"},
+                        "type": {"type": "string"},
                     },
+                    "required": ["query"],
                 },
             },
             {
-                "name": "criar_projeto",
-                "description": "Cria um projeto no Supabase",
+                "name": "criar_reminder",
+                "description": "Cria um lembrete vinculado a uma entry existente.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "titulo": {"type": "string"},
-                        "descricao": {"type": "string"},
-                        "prazo": {"type": "string"},
+                        "entry_id": {"type": "string"},
+                        "remind_at": {"type": "string", "description": "ISO 8601"},
                     },
-                    "required": ["titulo"],
-                },
-            },
-            {
-                "name": "listar_projetos",
-                "description": "Lista todos os projetos do usuário",
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-            {
-                "name": "criar_habito",
-                "description": "Cria um hábito no Supabase",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "titulo": {"type": "string"},
-                        "frequencia": {"type": "string", "description": "ex: daily, weekly, weekdays"},
-                    },
-                    "required": ["titulo", "frequencia"],
-                },
-            },
-            {
-                "name": "registrar_checkin",
-                "description": "Registra check-in de um hábito",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "habito_id": {"type": "string"},
-                    },
-                    "required": ["habito_id"],
-                },
-            },
-            {
-                "name": "listar_habitos",
-                "description": "Lista hábitos do usuário",
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-            {
-                "name": "criar_meta",
-                "description": "Cria uma meta no Supabase",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "titulo": {"type": "string"},
-                        "valor_alvo": {"type": "number"},
-                        "valor_atual": {"type": "number"},
-                        "prazo": {"type": "string"},
-                    },
-                    "required": ["titulo", "valor_alvo"],
-                },
-            },
-            {
-                "name": "atualizar_progresso_meta",
-                "description": "Atualiza o valor atual de uma meta",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "goal_id": {"type": "string"},
-                        "valor_atual": {"type": "number"},
-                    },
-                    "required": ["goal_id", "valor_atual"],
-                },
-            },
-            {
-                "name": "listar_metas",
-                "description": "Lista metas do usuário",
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
+                    "required": ["entry_id", "remind_at"],
                 },
             },
         ]
@@ -213,130 +156,115 @@ TOOLS = [
 ]
 
 
+# ─────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────
+
+_TYPE_LABELS = {
+    "task": "Tarefa", "note": "Nota", "event": "Evento",
+    "project": "Projeto", "habit": "Hábito", "goal": "Meta",
+    "transaction": "Transação", "reminder": "Lembrete", "contact": "Contato",
+}
+
+
+def _build_content(args: dict) -> dict:
+    content: dict = {}
+    for field in ("descricao", "amount", "transaction_type", "category",
+                  "frequency", "target_value", "email", "phone"):
+        if args.get(field) is not None:
+            key = "description" if field == "descricao" else field
+            content[key] = args[field]
+    return content
+
+
+def _format_entry(e: dict) -> str:
+    label = _TYPE_LABELS.get(e.get("type", ""), e.get("type", ""))
+    line = f"- [{label}] {e.get('title')} [{e.get('status')}]"
+    if e.get("due_date"):
+        line += f" (prazo: {e['due_date']})"
+    if e.get("id"):
+        line += f" [id:{e['id']}]"
+    return line
+
+
+# ─────────────────────────────────────────
+# HANDLER DAS FERRAMENTAS
+# ─────────────────────────────────────────
+
 async def _executar_ferramenta(fn: str, args: dict, user_id: str) -> str:
-    if fn == "criar_tarefa":
-        await sb.criar_tarefa(
-            titulo=args["titulo"],
-            descricao=args.get("descricao"),
-            due_date=args.get("data_vencimento"),
-            prioridade=args.get("prioridade", "média"),
+    if fn == "criar_entry":
+        entry_type = args["type"]
+        content = _build_content(args)
+        entry = await sb.criar_entry(
             user_id=user_id,
+            type=entry_type,
+            title=args["title"],
+            content=content,
+            due_date=args.get("due_date"),
+            date=args.get("date"),
+            tags=list(args["tags"]) if args.get("tags") else [],
         )
-        return f"Tarefa '{args['titulo']}' criada com sucesso!"
+        label = _TYPE_LABELS.get(entry_type, entry_type)
+        entry_id = entry.get("id", "")
+        return f"{label} '{args['title']}' criado(a)!" + (f" [id:{entry_id}]" if entry_id else "")
 
-    if fn == "criar_lembrete":
-        await sb.criar_lembrete(
-            titulo=args.get("titulo", "Lembrete"),
-            remind_at=args["quando"],
-            descricao=args.get("texto"),
+    if fn == "listar_entries":
+        entries = await sb.listar_entries(
             user_id=user_id,
-        )
-        return f"Lembrete criado para {args['quando']}!"
-
-    if fn == "registrar_gasto":
-        await sb.registrar_transacao(
-            descricao=args["descricao"],
-            valor=float(args["valor"]),
-            tipo="despesa",
-            categoria=args.get("categoria"),
-            user_id=user_id,
-        )
-        return f"Gasto de R${args['valor']} registrado!"
-
-    if fn == "ver_agenda_hoje":
-        eventos = await sb.listar_eventos_hoje(user_id=user_id)
-        if not eventos:
-            return "Nenhum evento hoje."
-        lista = "\n".join(f"- {e.get('title')}" for e in eventos)
-        return f"Seus eventos hoje:\n{lista}"
-
-    if fn == "marcar_tarefa_concluida":
-        ok = await sb.concluir_tarefa(task_id=args["task_id"], user_id=user_id)
-        return "Tarefa marcada como concluída!" if ok else "Não encontrei essa tarefa."
-
-    if fn == "listar_tarefas":
-        tarefas = await sb.listar_tarefas(
-            user_id=user_id,
+            type=args.get("type"),
             status=args.get("status"),
-            projeto_id=args.get("projeto_id"),
+            tags=list(args["tags"]) if args.get("tags") else None,
+            limit=int(args.get("limit", 20)),
         )
-        if not tarefas:
-            return "Nenhuma tarefa encontrada."
-        linhas = [
-            f"- [{t.get('status')}] {t.get('title')}"
-            + (f" (vence: {t.get('due_date')})" if t.get("due_date") else "")
-            for t in tarefas
-        ]
-        return "Suas tarefas:\n" + "\n".join(linhas)
+        if not entries:
+            return "Nenhuma entrada encontrada."
+        return "\n".join(_format_entry(e) for e in entries)
 
-    if fn == "criar_projeto":
-        await sb.criar_projeto(
-            titulo=args["titulo"],
-            descricao=args.get("descricao"),
-            prazo=args.get("prazo"),
+    if fn == "atualizar_entry":
+        updates: dict = {}
+        if args.get("title"):
+            updates["title"] = args["title"]
+        if args.get("status"):
+            updates["status"] = args["status"]
+        if args.get("due_date"):
+            updates["due_date"] = args["due_date"]
+        if args.get("descricao"):
+            updates["content"] = {"description": args["descricao"]}
+        if args.get("valor_atual") is not None:
+            updates["content"] = {"current_value": float(args["valor_atual"])}
+        if not updates:
+            return "Nenhum campo para atualizar."
+        ok = await sb.atualizar_entry(entry_id=args["entry_id"], user_id=user_id, updates=updates)
+        return "Entrada atualizada!" if ok else "Não encontrei essa entrada."
+
+    if fn == "deletar_entry":
+        ok = await sb.deletar_entry(entry_id=args["entry_id"], user_id=user_id)
+        return "Entrada deletada!" if ok else "Não encontrei essa entrada."
+
+    if fn == "buscar_entries":
+        entries = await sb.buscar_entries(
+            query=args["query"],
+            user_id=user_id,
+            type=args.get("type"),
+        )
+        if not entries:
+            return f"Nenhuma entrada encontrada para '{args['query']}'."
+        return "Encontrei:\n" + "\n".join(_format_entry(e) for e in entries)
+
+    if fn == "criar_reminder":
+        await sb.criar_reminder_entry(
+            entry_id=args["entry_id"],
+            remind_at=args["remind_at"],
             user_id=user_id,
         )
-        return f"Projeto '{args['titulo']}' criado!"
-
-    if fn == "listar_projetos":
-        projetos = await sb.listar_projetos(user_id=user_id)
-        if not projetos:
-            return "Nenhum projeto encontrado."
-        linhas = [
-            f"- [{p.get('status')}] {p.get('title')} ({p.get('progress', 0)}%)"
-            for p in projetos
-        ]
-        return "Seus projetos:\n" + "\n".join(linhas)
-
-    if fn == "criar_habito":
-        await sb.criar_habito(
-            titulo=args["titulo"],
-            frequencia=args["frequencia"],
-            user_id=user_id,
-        )
-        return f"Hábito '{args['titulo']}' criado!"
-
-    if fn == "registrar_checkin":
-        await sb.registrar_checkin(habito_id=args["habito_id"], user_id=user_id)
-        return "Check-in registrado!"
-
-    if fn == "listar_habitos":
-        habitos = await sb.listar_habitos(user_id=user_id)
-        if not habitos:
-            return "Nenhum hábito encontrado."
-        linhas = [f"- {h.get('title')} ({h.get('frequency')})" for h in habitos]
-        return "Seus hábitos:\n" + "\n".join(linhas)
-
-    if fn == "criar_meta":
-        await sb.criar_meta(
-            titulo=args["titulo"],
-            valor_alvo=float(args["valor_alvo"]),
-            valor_atual=float(args.get("valor_atual", 0)),
-            prazo=args.get("prazo"),
-            user_id=user_id,
-        )
-        return f"Meta '{args['titulo']}' criada!"
-
-    if fn == "atualizar_progresso_meta":
-        await sb.atualizar_progresso_meta(
-            goal_id=args["goal_id"],
-            valor_atual=float(args["valor_atual"]),
-        )
-        return "Progresso da meta atualizado!"
-
-    if fn == "listar_metas":
-        metas = await sb.listar_metas(user_id=user_id)
-        if not metas:
-            return "Nenhuma meta encontrada."
-        linhas = [
-            f"- {m.get('title')}: {m.get('current_value')}/{m.get('target_value')}"
-            + (f" (prazo: {m.get('deadline')})" if m.get("deadline") else "")
-            for m in metas
-        ]
-        return "Suas metas:\n" + "\n".join(linhas)
+        return f"Lembrete criado para {args['remind_at']}!"
 
     return "Ferramenta não reconhecida."
 
+
+# ─────────────────────────────────────────
+# ROTAS
+# ─────────────────────────────────────────
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
@@ -345,38 +273,42 @@ async def chat(req: ChatRequest):
         if not api_key:
             raise HTTPException(status_code=500, detail="GOOGLE_API_KEY não configurada.")
 
-        mem0_client = AsyncMemoryClient()
         user_id = req.user_id
 
-        memories = await mem0_client.search(
+        # Garante que o usuário existe no perfil
+        try:
+            await sb.get_or_create_user(user_id=user_id)
+        except Exception:
+            pass
+
+        mem0_client = AsyncMemoryClient()
+
+        # Busca memórias e tarefas pendentes em paralelo
+        memories_task = mem0_client.search(
             query=req.message,
             filters={"user_id": user_id},
             limit=10,
         )
-        if isinstance(memories, dict):
-            results = memories.get("results", [])
-        else:
-            results = memories or []
+        tarefas_task = sb.listar_entries(user_id=user_id, type="task", status="active")
 
+        memories_resp, tarefas = await asyncio.gather(memories_task, tarefas_task, return_exceptions=True)
+
+        # Memórias
         memory_text = ""
-        if results:
+        if not isinstance(memories_resp, Exception):
+            results = memories_resp.get("results", []) if isinstance(memories_resp, dict) else (memories_resp or [])
             items = [r.get("memory") or r.get("text") for r in results if isinstance(r, dict)]
             memory_text = "\n".join(f"- {m}" for m in items if m)
 
-        # Busca tarefas pendentes para contexto proativo
+        # Tarefas pendentes
         tarefas_pendentes = ""
-        try:
-            tarefas = await sb.listar_tarefas(user_id=user_id)
-            pendentes = [t for t in tarefas if t.get("status") not in ("concluida", "cancelada")]
-            if pendentes:
-                linhas = [
-                    f"- [id:{t.get('id')}] {t.get('title')}"
-                    + (f" (vence: {t.get('due_date')})" if t.get("due_date") else "")
-                    for t in pendentes
-                ]
-                tarefas_pendentes = "\n".join(linhas)
-        except Exception:
-            pass
+        if not isinstance(tarefas, Exception) and tarefas:
+            linhas = [
+                f"- [id:{t.get('id')}] {t.get('title')}"
+                + (f" (vence: {t.get('due_date')})" if t.get("due_date") else "")
+                for t in tarefas
+            ]
+            tarefas_pendentes = "\n".join(linhas)
 
         system = FULL_INSTRUCTION
         if memory_text:
@@ -391,7 +323,7 @@ async def chat(req: ChatRequest):
             contents=req.message,
         )
 
-        # Coleta todos os function calls da resposta
+        # Coleta todos os function calls e executa em paralelo
         calls = [
             part.function_call
             for part in result.candidates[0].content.parts
@@ -407,10 +339,14 @@ async def chat(req: ChatRequest):
         else:
             response_text = result.text or ""
 
-        await mem0_client.add([
-            {"role": "user", "content": req.message},
-            {"role": "assistant", "content": response_text},
-        ], user_id=user_id)
+        # Salva conversa no Mem0
+        try:
+            await mem0_client.add([
+                {"role": "user", "content": req.message},
+                {"role": "assistant", "content": response_text},
+            ], user_id=user_id)
+        except Exception:
+            pass
 
         return {"response": response_text}
     except HTTPException:
