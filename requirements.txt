@@ -1,3 +1,5 @@
+fastapi
+uvicorn[standard]
 livekit-agents
 livekit-plugins-openai
 livekit-plugins-silero
