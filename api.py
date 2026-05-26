@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
+import asyncio
 from dotenv import load_dotenv
 from google import genai
 from mem0 import AsyncMemoryClient
@@ -212,16 +213,20 @@ async def chat(req: ChatRequest):
             contents=req.message,
         )
 
-        # Verifica function call
-        response_text = None
-        for part in result.candidates[0].content.parts:
-            if hasattr(part, "function_call") and part.function_call:
-                fn = part.function_call.name
-                args = dict(part.function_call.args)
-                response_text = await _executar_ferramenta(fn, args, user_id)
-                break
+        # Coleta todos os function calls da resposta
+        calls = [
+            part.function_call
+            for part in result.candidates[0].content.parts
+            if hasattr(part, "function_call") and part.function_call
+        ]
 
-        if response_text is None:
+        if calls:
+            resultados = await asyncio.gather(*[
+                _executar_ferramenta(call.name, dict(call.args), user_id)
+                for call in calls
+            ])
+            response_text = "\n".join(resultados)
+        else:
             response_text = result.text or ""
 
         await mem0_client.add([
