@@ -322,11 +322,13 @@ async def chat(req: ChatRequest):
         if tarefas_pendentes:
             system += f"\n\n[Tarefas pendentes do usuário]\n{tarefas_pendentes}"
 
+        mensagem_com_contexto = f"[Contexto: hoje é {data_hora}]\n\n{req.message}"
+
         gemini = genai.Client(api_key=api_key)
         result = gemini.models.generate_content(
             model="gemini-2.5-flash",
             config={"system_instruction": system, "tools": TOOLS},
-            contents=req.message,
+            contents=mensagem_com_contexto,
         )
 
         # Coleta todos os function calls e executa em paralelo
