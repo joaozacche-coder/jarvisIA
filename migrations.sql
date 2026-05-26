@@ -2,9 +2,6 @@
 -- Rode este arquivo no SQL Editor do Supabase
 -- ─────────────────────────────────────────
 
--- Adiciona project_id à tabela tasks (caso não exista)
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id) ON DELETE SET NULL;
-
 -- ─────────────────────────────────────────
 -- PROJETOS
 -- ─────────────────────────────────────────
@@ -19,6 +16,9 @@ CREATE TABLE IF NOT EXISTS projects (
     created_at  TIMESTAMPTZ DEFAULT NOW(),
     updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Adiciona project_id à tabela tasks (projects deve existir antes)
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id) ON DELETE SET NULL;
 
 -- ─────────────────────────────────────────
 -- HÁBITOS
