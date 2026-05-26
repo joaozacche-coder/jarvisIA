@@ -335,7 +335,18 @@ async def chat(req: ChatRequest):
                 _executar_ferramenta(call.name, dict(call.args), user_id)
                 for call in calls
             ])
-            response_text = "\n".join(resultados)
+            resumo_tecnico = "\n".join(resultados)
+            followup = gemini.models.generate_content(
+                model="gemini-2.5-flash",
+                config={"system_instruction": system},
+                contents=(
+                    f"Você acabou de executar com sucesso as seguintes ações. "
+                    f"Resultado interno: {resumo_tecnico}. "
+                    f"Confirme de forma natural e elegante para o Chefe, "
+                    f"sem mostrar IDs técnicos, status internos ou colchetes."
+                ),
+            )
+            response_text = followup.text or resumo_tecnico
         else:
             response_text = result.text or ""
 
