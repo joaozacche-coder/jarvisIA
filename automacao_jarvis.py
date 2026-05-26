@@ -3,10 +3,19 @@ import shutil
 import webbrowser
 import zipfile
 import subprocess
-from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-from ctypes import cast, POINTER
-from comtypes import CLSCTX_ALL
-import screen_brightness_control as sbc
+try:
+    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+    from ctypes import cast, POINTER
+    from comtypes import CLSCTX_ALL
+    PYCAW_DISPONIVEL = True
+except ImportError:
+    PYCAW_DISPONIVEL = False
+
+try:
+    import screen_brightness_control as sbc
+    SBC_DISPONIVEL = True
+except ImportError:
+    SBC_DISPONIVEL = False
 
 class JarvisControl:
     def __init__(self):
@@ -204,6 +213,8 @@ class JarvisControl:
 
     def controle_volume(self, nivel):
         """Define o volume entre 0 e 100"""
+        if not PYCAW_DISPONIVEL:
+            return "Controle de volume não disponível neste ambiente."
         try:
             nivel = max(0, min(100, int(nivel)))
             import comtypes
@@ -217,6 +228,8 @@ class JarvisControl:
 
     def controle_brilho(self, nivel):
         """Define o brilho entre 0 e 100"""
+        if not SBC_DISPONIVEL:
+            return "Controle de brilho não disponível neste ambiente."
         try:
             nivel = max(0, min(100, int(nivel)))
             sbc.set_brightness(nivel)
