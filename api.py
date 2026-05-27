@@ -94,14 +94,14 @@ QUANDO LER O CONTEXTO VIVO:
 - SEMPRE antes de responder sobre qualquer cliente ou projeto
 - Use buscar_contexto_vivo para puxar o estado atual
 
-FLUXO OBRIGATÓRIO:
-1. Usuário menciona cliente/projeto
-2. Jarvis lê contexto vivo com buscar_contexto_vivo
-3. Jarvis responde com base no estado atual
-4. Se houver nova info → atualiza o contexto vivo com atualizar_contexto_vivo
+FLUXO OBRIGATÓRIO A CADA MENSAGEM:
+1. Usuário menciona cliente/projeto/área com QUALQUER informação nova
+2. Chama atualizar_contexto_vivo IMEDIATAMENTE com as informações
+3. NÃO busca antes de criar — cria/atualiza primeiro, sempre
+4. Confirma naturalmente para o Chefe
 
-NUNCA crie duas notas de contexto para o mesmo cliente/projeto.
-Se já existe, ATUALIZE. Se não existe, CRIE.
+NUNCA chame buscar_contexto_vivo quando o usuário estiver passando informação nova.
+buscar_contexto_vivo é APENAS para quando o usuário PERGUNTAR sobre o status de algo.
 """
 
 FULL_INSTRUCTION = AGENT_INSTRUCTION + PROACTIVE_RULES + SEGUNDO_CEREBRO_RULES
