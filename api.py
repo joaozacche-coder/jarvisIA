@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Optional, List
 import os
 import asyncio
 from datetime import datetime
@@ -109,6 +110,22 @@ FULL_INSTRUCTION = AGENT_INSTRUCTION + PROACTIVE_RULES + SEGUNDO_CEREBRO_RULES
 
 class ChatRequest(BaseModel):
     message: str
+    user_id: str = "JoaoZacche"
+
+
+class CreateTaskRequest(BaseModel):
+    title: str
+    priority: int = 1
+    due_date: Optional[str] = None
+    tags: List[str] = []
+    user_id: str = "JoaoZacche"
+
+
+class UpdateTaskRequest(BaseModel):
+    status: Optional[str] = None
+    title: Optional[str] = None
+    priority: Optional[int] = None
+    due_date: Optional[str] = None
     user_id: str = "JoaoZacche"
 
 
@@ -603,3 +620,49 @@ async def chat(req: ChatRequest):
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# ─────────────────────────────────────────
+# TASKS REST
+# ─────────────────────────────────────────
+
+@app.get("/tasks")
+async def list_tasks(user_id: str = "JoaoZacche"):
+    tasks = await sb.listar_entries(user_id=user_id, type="task")
+    return {"tasks": tasks}
+
+
+@app.post("/tasks")
+async def create_task(req: CreateTaskRequest):
+    entry = await sb.criar_entry(
+        user_id=req.user_id,
+        type="task",
+        title=req.title,
+        priority=req.priority,
+        due_date=req.due_date,
+        tags=req.tags,
+    )
+    return entry
+
+
+@app.patch("/tasks/{task_id}")
+async def update_task(task_id: str, req: UpdateTaskRequest):
+    updates: dict = {}
+    if req.status is not None:
+        updates["status"] = req.status
+    if req.title is not None:
+        updates["title"] = req.title
+    if req.priority is not None:
+        updates["priority"] = req.priority
+    if req.due_date is not None:
+        updates["due_date"] = req.due_date
+    if not updates:
+        return {"ok": False}
+    ok = await sb.atualizar_entry(entry_id=task_id, user_id=req.user_id, updates=updates)
+    return {"ok": ok}
+
+
+@app.delete("/tasks/{task_id}")
+async def delete_task(task_id: str, user_id: str = "JoaoZacche"):
+    ok = await sb.deletar_entry(entry_id=task_id, user_id=user_id)
+    return {"ok": ok}
