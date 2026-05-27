@@ -9,6 +9,7 @@ from google import genai
 from mem0 import AsyncMemoryClient
 from prompts import AGENT_INSTRUCTION
 import supabase_client as sb
+from obsidian_tools import OBSIDIAN_TOOL_DEFINITIONS, executar_obsidian_tool
 
 load_dotenv()
 
@@ -60,7 +61,47 @@ TIPOS DE ENTRY DISPONÍVEIS:
 task, note, event, project, habit, goal, transaction, reminder, contact
 """
 
-FULL_INSTRUCTION = AGENT_INSTRUCTION + PROACTIVE_RULES
+OBSIDIAN_RULES = """
+SEGUNDO CÉREBRO — OBSIDIAN (REGRAS OBRIGATÓRIAS):
+
+O vault do Obsidian é a memória permanente do João. Estrutura:
+- Clientes/ → Gracie Barra.md, SoHo.md, DDpartssolution.md
+- Projetos/ → Jarvis.md e outros
+- Aprendizados/ → Cursos.md, Autoescola.md, Faculdade.md, Trafego Pago.md
+- Areas/ → Financeiro.md, Saude.md, Carreira.md, Pessoal.md
+- Recursos/ → Ferramentas.md, Referencias.md, Contatos.md
+- Diario/ → notas diárias no formato YYYY-MM-DD.md
+
+QUANDO USAR O OBSIDIAN:
+
+A) SEMPRE registre no Obsidian quando o usuário mencionar:
+   - Resultado de campanha, lead, conversão → obsidian_registrar_historico no cliente
+   - Reunião realizada ou agendada → obsidian_registrar_historico
+   - Pagamento recebido ou enviado → obsidian_registrar_historico (tipo: financeiro)
+   - Novo aprendizado, curso, aula → obsidian_salvar_informacao em Aprendizados/
+   - Decisão importante → obsidian_salvar_informacao na área relevante
+   - Informação sobre cliente → obsidian_registrar_historico no cliente
+
+B) SEMPRE leia o Obsidian antes de responder sobre:
+   - Qualquer cliente (Gracie Barra, SoHo, DDpartssolution ou novo)
+   - Progresso em cursos, faculdade, autoescola
+   - Status de projetos
+   Use obsidian_ler_nota para ter contexto atualizado.
+
+C) CRIE nota automaticamente quando:
+   - Usuário menciona novo cliente → obsidian_criar_nota_cliente
+   - Usuário menciona novo projeto → obsidian_salvar_informacao em Projetos/
+
+D) Se o Obsidian retornar erro de conexão:
+   Avise: "Preciso que você abra o Obsidian no seu Mac, Chefe."
+   Não tente novamente — continue a conversa normalmente.
+
+IMPORTANTE: Use Supabase E Obsidian em conjunto.
+Supabase = dados estruturados e tarefas.
+Obsidian = contexto rico, histórico narrativo, segundo cérebro.
+"""
+
+FULL_INSTRUCTION = AGENT_INSTRUCTION + PROACTIVE_RULES + OBSIDIAN_RULES
 
 
 class ChatRequest(BaseModel):
@@ -69,107 +110,113 @@ class ChatRequest(BaseModel):
 
 
 # ─────────────────────────────────────────
-# 6 FERRAMENTAS UNIVERSAIS
+# FERRAMENTAS — Supabase + Obsidian
 # ─────────────────────────────────────────
 
+SUPABASE_TOOL_DECLARATIONS = [
+    {
+        "name": "criar_entry",
+        "description": (
+            "Cria qualquer tipo de entrada no sistema. "
+            "Types: task (tarefa), note (nota), event (evento), project (projeto), "
+            "habit (hábito), goal (meta), transaction (gasto/receita), "
+            "reminder (lembrete), contact (contato)."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string"},
+                "title": {"type": "string"},
+                "descricao": {"type": "string"},
+                "due_date": {"type": "string", "description": "ISO 8601"},
+                "date": {"type": "string", "description": "ISO 8601 — data principal (ex: start_time de eventos)"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "amount": {"type": "number", "description": "Para transaction: valor em reais"},
+                "transaction_type": {"type": "string", "description": "receita ou despesa"},
+                "category": {"type": "string", "description": "Para transaction: categoria"},
+                "frequency": {"type": "string", "description": "Para habit: daily, weekly, weekdays"},
+                "target_value": {"type": "number", "description": "Para goal: valor alvo"},
+                "email": {"type": "string", "description": "Para contact"},
+                "phone": {"type": "string", "description": "Para contact"},
+            },
+            "required": ["type", "title"],
+        },
+    },
+    {
+        "name": "listar_entries",
+        "description": "Lista entradas por tipo e filtros opcionais.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string"},
+                "status": {"type": "string", "description": "active, done, cancelled"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "limit": {"type": "integer"},
+            },
+        },
+    },
+    {
+        "name": "atualizar_entry",
+        "description": "Atualiza título, status, descrição ou prazo de uma entrada.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "entry_id": {"type": "string"},
+                "title": {"type": "string"},
+                "status": {"type": "string", "description": "active, done, cancelled"},
+                "descricao": {"type": "string"},
+                "due_date": {"type": "string"},
+                "valor_atual": {"type": "number", "description": "Para goal: atualiza current_value"},
+            },
+            "required": ["entry_id"],
+        },
+    },
+    {
+        "name": "deletar_entry",
+        "description": "Deleta uma entrada pelo ID.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "entry_id": {"type": "string"},
+            },
+            "required": ["entry_id"],
+        },
+    },
+    {
+        "name": "buscar_entries",
+        "description": "Busca entradas por texto no título.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "type": {"type": "string"},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "criar_reminder",
+        "description": "Cria um lembrete vinculado a uma entry existente.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "entry_id": {"type": "string"},
+                "remind_at": {"type": "string", "description": "ISO 8601"},
+            },
+            "required": ["entry_id", "remind_at"],
+        },
+    },
+]
+
+# Junta ferramentas do Supabase + Obsidian em uma lista só para o Gemini
 TOOLS = [
     {
-        "function_declarations": [
-            {
-                "name": "criar_entry",
-                "description": (
-                    "Cria qualquer tipo de entrada no sistema. "
-                    "Types: task (tarefa), note (nota), event (evento), project (projeto), "
-                    "habit (hábito), goal (meta), transaction (gasto/receita), "
-                    "reminder (lembrete), contact (contato)."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "type": {"type": "string"},
-                        "title": {"type": "string"},
-                        "descricao": {"type": "string"},
-                        "due_date": {"type": "string", "description": "ISO 8601"},
-                        "date": {"type": "string", "description": "ISO 8601 — data principal (ex: start_time de eventos)"},
-                        "tags": {"type": "array", "items": {"type": "string"}},
-                        "amount": {"type": "number", "description": "Para transaction: valor em reais"},
-                        "transaction_type": {"type": "string", "description": "receita ou despesa"},
-                        "category": {"type": "string", "description": "Para transaction: categoria"},
-                        "frequency": {"type": "string", "description": "Para habit: daily, weekly, weekdays"},
-                        "target_value": {"type": "number", "description": "Para goal: valor alvo"},
-                        "email": {"type": "string", "description": "Para contact"},
-                        "phone": {"type": "string", "description": "Para contact"},
-                    },
-                    "required": ["type", "title"],
-                },
-            },
-            {
-                "name": "listar_entries",
-                "description": "Lista entradas por tipo e filtros opcionais.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "type": {"type": "string"},
-                        "status": {"type": "string", "description": "active, done, cancelled"},
-                        "tags": {"type": "array", "items": {"type": "string"}},
-                        "limit": {"type": "integer"},
-                    },
-                },
-            },
-            {
-                "name": "atualizar_entry",
-                "description": "Atualiza título, status, descrição ou prazo de uma entrada.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "entry_id": {"type": "string"},
-                        "title": {"type": "string"},
-                        "status": {"type": "string", "description": "active, done, cancelled"},
-                        "descricao": {"type": "string"},
-                        "due_date": {"type": "string"},
-                        "valor_atual": {"type": "number", "description": "Para goal: atualiza current_value"},
-                    },
-                    "required": ["entry_id"],
-                },
-            },
-            {
-                "name": "deletar_entry",
-                "description": "Deleta uma entrada pelo ID.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "entry_id": {"type": "string"},
-                    },
-                    "required": ["entry_id"],
-                },
-            },
-            {
-                "name": "buscar_entries",
-                "description": "Busca entradas por texto no título.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string"},
-                        "type": {"type": "string"},
-                    },
-                    "required": ["query"],
-                },
-            },
-            {
-                "name": "criar_reminder",
-                "description": "Cria um lembrete vinculado a uma entry existente.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "entry_id": {"type": "string"},
-                        "remind_at": {"type": "string", "description": "ISO 8601"},
-                    },
-                    "required": ["entry_id", "remind_at"],
-                },
-            },
-        ]
+        "function_declarations": SUPABASE_TOOL_DECLARATIONS + OBSIDIAN_TOOL_DEFINITIONS
     }
 ]
+
+# Set com nomes das ferramentas do Obsidian para roteamento rápido
+OBSIDIAN_TOOL_NAMES = {t["name"] for t in OBSIDIAN_TOOL_DEFINITIONS}
 
 
 # ─────────────────────────────────────────
@@ -208,6 +255,12 @@ def _format_entry(e: dict) -> str:
 # ─────────────────────────────────────────
 
 async def _executar_ferramenta(fn: str, args: dict, user_id: str) -> str:
+
+    # ── Ferramentas do Obsidian ──
+    if fn in OBSIDIAN_TOOL_NAMES:
+        return await executar_obsidian_tool(fn, args)
+
+    # ── Ferramentas do Supabase ──
     if fn == "criar_entry":
         entry_type = args["type"]
         content = _build_content(args)
@@ -345,7 +398,7 @@ async def chat(req: ChatRequest):
             contents=mensagem_com_contexto,
         )
 
-        # Coleta todos os function calls e executa em paralelo
+        # Coleta todos os function calls
         calls = [
             part.function_call
             for part in result.candidates[0].content.parts
@@ -353,6 +406,7 @@ async def chat(req: ChatRequest):
         ]
 
         if calls:
+            # Executa todas as ferramentas (Supabase + Obsidian) em paralelo
             resultados = await asyncio.gather(*[
                 _executar_ferramenta(call.name, dict(call.args), user_id)
                 for call in calls

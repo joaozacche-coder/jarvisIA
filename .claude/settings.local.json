@@ -6,7 +6,20 @@
       "Bash(git rm *)",
       "Bash(git check-ignore *)",
       "Bash(git config *)",
-      "Bash(xxd .gitignore)"
+      "Bash(xxd .gitignore)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(pip3 show *)",
+      "Bash(pip3 install *)",
+      "Bash(curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' -d '{\"message\": \"olá\", \"user_id\": \"JoaoZacche\"}')",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(kill %1)",
+      "Bash(curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' -d '{\"message\": \"olá, tudo bem?\", \"user_id\": \"JoaoZacche\"}')",
+      "Bash(pkill -f \"uvicorn api:app\")",
+      "Bash(curl -s -X POST http://localhost:8001/chat -H 'Content-Type: application/json' -d '{\"message\": \"olá, tudo bem?\", \"user_id\": \"JoaoZacche\"}')",
+      "Bash(curl *)"
     ]
   }
 }
