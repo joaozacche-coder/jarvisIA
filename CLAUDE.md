@@ -31,9 +31,13 @@
 ### Frontend (`/Users/zacche/Desktop/jarvisnewfront`)
 | Arquivo | Quando ler |
 |---|---|
-| `public/index.html` | Mudanças no chat, visual, componentes |
+| `public/index.html` | Mudanças no chat, visual, componentes, telas internas |
 | `src/app/api/chat/route.ts` | Mudanças no proxy do chat |
 | `src/app/api/token/route.ts` | Mudanças no LiveKit token |
+| `src/app/api/clients/route.ts` | Mudanças no proxy de clientes |
+| `src/app/api/tasks/route.ts` | Mudanças no proxy de tarefas |
+| `src/app/api/tasks/[id]/route.ts` | Mudanças no proxy de tarefas por ID |
+| `src/app/api/context/route.ts` | Mudanças no proxy de contexto vivo |
 
 ---
 
@@ -103,6 +107,12 @@ Em vez de ler arquivos inteiros, use estas referências rápidas:
 
 **"Como o chat funciona?"**
 → `public/index.html`: função `submit()` envia para `/api/chat` → `src/app/api/chat/route.ts` → Railway `/chat`
+
+**"Como a tela de Tarefas funciona?"**
+→ `public/index.html`: `TasksView` (React.createElement) → `/api/tasks` → Railway `/tasks`
+
+**"Como a tela de Clientes funciona?"**
+→ `public/index.html`: `ClientsView` com `_FIXED_CLIENTS` base → `/api/clients` + `/api/context?name=X` → Railway `/clients` e `/context`
 
 **"Como o Jarvis decide o que fazer?"**
 → `api.py`: Gemini recebe system prompt + ferramentas → function calling → `_executar_ferramenta()`
