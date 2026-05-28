@@ -666,3 +666,26 @@ async def update_task(task_id: str, req: UpdateTaskRequest):
 async def delete_task(task_id: str, user_id: str = "JoaoZacche"):
     ok = await sb.deletar_entry(entry_id=task_id, user_id=user_id)
     return {"ok": ok}
+
+
+# ─────────────────────────────────────────
+# CLIENTS REST
+# ─────────────────────────────────────────
+
+@app.get("/clients")
+async def list_clients(user_id: str = "JoaoZacche"):
+    contexts, tasks = await asyncio.gather(
+        sb.listar_entries(user_id=user_id, type="note", tags=["contexto-vivo"]),
+        sb.listar_entries(user_id=user_id, type="task", status="active"),
+    )
+    clients = []
+    for ctx in contexts:
+        name = ctx.get("title", "").replace("contexto:", "").strip()
+        slug = name.lower().replace(" ", "-")
+        task_count = sum(
+            1 for t in tasks
+            if slug in [tag.lower() for tag in (t.get("tags") or [])]
+            or name.lower() in (t.get("title") or "").lower()
+        )
+        clients.append({**ctx, "client_name": name, "task_count": task_count})
+    return {"clients": clients}
