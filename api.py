@@ -708,3 +708,22 @@ async def list_clients(user_id: str = "JoaoZacche"):
             "has_context": bool(ctx),
         })
     return {"clients": clients}
+
+
+@app.get("/context")
+async def get_context(name: str, user_id: str = "JoaoZacche"):
+    titulo = _titulo_contexto(name)
+    entries = await sb.buscar_entries(query=titulo, user_id=user_id, type="note")
+    match = next((e for e in entries if e.get("title", "").lower() == titulo.lower()), None)
+    if not match:
+        return {"has_context": False}
+    content = match.get("content") or {}
+    if not isinstance(content, dict):
+        return {"has_context": False}
+    return {
+        "has_context": True,
+        "situacao_atual": content.get("situacao_atual") or content.get("body") or "",
+        "proximo_passo": content.get("proximo_passo") or content.get("next_step") or "",
+        "ultimo_passo": content.get("ultimo_passo") or "",
+        "updated_at": match.get("updated_at"),
+    }
