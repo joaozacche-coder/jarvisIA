@@ -672,20 +672,39 @@ async def delete_task(task_id: str, user_id: str = "JoaoZacche"):
 # CLIENTS REST
 # ─────────────────────────────────────────
 
+_KNOWN_CLIENTS = [
+    {"name": "Gracie Barra",    "color": "#534AB7"},
+    {"name": "SoHo",            "color": "#185FA5"},
+    {"name": "DDpartssolution", "color": "#0F6E56"},
+]
+
 @app.get("/clients")
 async def list_clients(user_id: str = "JoaoZacche"):
     contexts, tasks = await asyncio.gather(
-        sb.listar_entries(user_id=user_id, type="note", tags=["contexto-vivo"]),
+        sb.buscar_entries(query="contexto:", user_id=user_id, type="note", limit=50),
         sb.listar_entries(user_id=user_id, type="task", status="active"),
     )
-    clients = []
+    ctx_map = {}
     for ctx in contexts:
-        name = ctx.get("title", "").replace("contexto:", "").strip()
-        slug = name.lower().replace(" ", "-")
+        title = ctx.get("title", "")
+        if "contexto:" in title.lower():
+            name = title.lower().split("contexto:", 1)[1].strip()
+            ctx_map[name] = ctx
+
+    clients = []
+    for kc in _KNOWN_CLIENTS:
+        ctx = ctx_map.get(kc["name"].lower(), {})
+        slug = kc["name"].lower().replace(" ", "-")
         task_count = sum(
             1 for t in tasks
             if slug in [tag.lower() for tag in (t.get("tags") or [])]
-            or name.lower() in (t.get("title") or "").lower()
+            or kc["name"].lower() in (t.get("title") or "").lower()
         )
-        clients.append({**ctx, "client_name": name, "task_count": task_count})
+        clients.append({
+            **(ctx or {}),
+            "client_name": kc["name"],
+            "client_color": kc["color"],
+            "task_count": task_count,
+            "has_context": bool(ctx),
+        })
     return {"clients": clients}
