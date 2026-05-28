@@ -727,3 +727,30 @@ async def get_context(name: str, user_id: str = "JoaoZacche"):
         "ultimo_passo": content.get("ultimo_passo") or "",
         "updated_at": match.get("updated_at"),
     }
+
+
+class TransactionBody(BaseModel):
+    title: str = ""
+    amount: float
+    transaction_type: str = "despesa"
+    category: str = "Outros"
+
+@app.get("/transactions")
+async def list_transactions(user_id: str = "JoaoZacche", limit: int = 200):
+    entries = await sb.listar_entries(user_id=user_id, type="transaction", limit=limit)
+    return {"transactions": entries}
+
+@app.post("/transactions")
+async def create_transaction(body: TransactionBody, user_id: str = "JoaoZacche"):
+    result = await sb.criar_entry(
+        user_id=user_id,
+        type="transaction",
+        title=body.title or (body.transaction_type.capitalize()),
+        content={
+            "amount": body.amount,
+            "transaction_type": body.transaction_type,
+            "category": body.category,
+        },
+        date=datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat(),
+    )
+    return result
