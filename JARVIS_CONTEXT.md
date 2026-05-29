@@ -189,8 +189,7 @@ LIVEKIT_API_SECRET=...
 1. ~~**Tela de Tarefas**~~ ✅ — dados reais do Supabase, loading state, modal Nova Tarefa, toggle done/undone, stats ao vivo
 2. ~~**Tela de Clientes**~~ ✅ — 3 clientes fixos sempre visíveis, CountUp, avatar, ponto pulsante, divider animado, cursor piscando, estado vazio, modal Novo Cliente, busca de contexto robusta
 3. ~~**Tela de Finanças**~~ ✅ — transações reais, saldo, gráfico IntersectionObserver, edit modal, paginação, normCat, auto-refresh 30s, Tabler icons
-4. ~~**Tela de Agenda**~~ ✅ — time grid 6am-23h, semana navegável com slide, indicador now pulsante, event cards por cor, modal criar/editar, FAB, motion design máximo
-5. **Tela de Segundo Cérebro** — notas, aprendizados, áreas de vida
+4. ~~**Tela de Agenda**~~ ✅ — 3 views Dia/Semana/Mês, swipe/drag, slide animation, time grid ROW_H=60px, now-line, event cards, FAB+modal, briefing diário estruturado (EVENTOS/TAREFAS/FOCO com ícones)
 5. **Tela de Segundo Cérebro** — notas, aprendizados, áreas de vida
 
 ### FASE 2 — Chat inteligente com blocos
@@ -202,7 +201,7 @@ LIVEKIT_API_SECRET=...
 9. Conectar microfone do frontend ao agente LiveKit que já está rodando
 
 ### FASE 4 — Automação e proatividade
-10. Briefing diário automático toda manhã
+10. ~~Briefing diário automático toda manhã~~ ✅ — integrado na view Dia da Agenda
 11. Notificações push de lembretes
 
 ### FASE 5 — Escala
@@ -302,3 +301,15 @@ LIVEKIT_API_SECRET=...
 - Date das transações oculto por padrão (desktop), aparece no hover; sempre visível no mobile
 - Ícones Tabler Icons webfont adicionados ao head (ti-trash, ti-pencil substituem emoji 🗑)
 - Endpoint PATCH /transactions/{tx_id} adicionado ao api.py
+
+**Jarvis 12 (2026-05-29):**
+- AgendaView completa: 3 views (Dia/Semana/Mês) com slide animado agSlideL/agSlideR (translateX 22%)
+- Navegação swipe/drag: swipeRef detecta toque ou mouse com threshold 50px + dominância horizontal (|dy|<|dx|*0.9)
+- View Mês: células fora do mês com visibility:hidden (mantém grid), borders right+bottom, hover com border-radius 8px, animação agCellIn (pure fade, delay 8ms*--ci), sem selDay
+- ROW_H reduzido de 68 → 60px; now-line calcula nowTop=(total-HOUR_START)*ROW_H
+- Briefing diário expandível: card 44px colapsado → 520px expandido via max-height transition cubic-bezier(0.4,0,0.2,1)
+- Prompt estruturado obrigatório: `EVENTOS: / TAREFAS: / FOCO:` — eventos reais do dia são injetados como contexto (`evsStr`)
+- Parser no frontend: regex `/EVENTOS:\s*(.+?)(?=\nTAREFAS:|\nFOCO:|$)/s` extrai 3 seções; fallback para texto puro se formato diferir
+- Visual estruturado: ti-calendar roxo (Eventos), ti-circle-check verde (Tarefas), ti-target âmbar (Foco com destaque)
+- Preview colapsado mostra conteúdo de EVENTOS sem o label; footer com "→ Abrir chat" + "↻ Atualizar" + timestamp
+- Briefing auto-abre ao entrar na view Dia; fetch via /api/chat proxy (sem CORS)
