@@ -188,7 +188,7 @@ LIVEKIT_API_SECRET=...
 ### FASE 1 — Telas internas
 1. ~~**Tela de Tarefas**~~ ✅ — dados reais do Supabase, loading state, modal Nova Tarefa, toggle done/undone, stats ao vivo
 2. ~~**Tela de Clientes**~~ ✅ — 3 clientes fixos sempre visíveis, CountUp, avatar, ponto pulsante, divider animado, cursor piscando, estado vazio, modal Novo Cliente, busca de contexto robusta
-3. ~~**Tela de Finanças**~~ ✅ — transações reais, saldo, gráfico de barras, modal Nova Transação, animações fin-*
+3. ~~**Tela de Finanças**~~ ✅ — transações reais, saldo, gráfico IntersectionObserver, edit modal, paginação, normCat, auto-refresh 30s, Tabler icons
 4. **Tela de Agenda** — eventos do dia/semana
 5. **Tela de Segundo Cérebro** — notas, aprendizados, áreas de vida
 
@@ -271,10 +271,24 @@ LIVEKIT_API_SECRET=...
 - Next.js route /api/context/route.ts criada (proxy para Railway /context)
 - Frontend: após fetch do /clients, enriquece via Promise.all cada cliente sem has_context via /api/context?name=X separado — garante que Gracie Barra e outros mostrem contexto mesmo que /clients não retorne has_context=true
 
-**Jarvis 9 (atual):**
+**Jarvis 9:**
 - Backend: endpoints GET /transactions e POST /transactions adicionados em api.py; TransactionBody Pydantic model; entries tipo "transaction" com content.amount, content.transaction_type (receita/despesa), content.category
 - Next.js route /api/transactions/route.ts criada (proxy para Railway /transactions)
 - Tela de Finanças (FinanceView) construída no index.html: header com saldo total CountUp pt-BR, 3 cards de resumo (receitas/despesas/saldo com animação staggered), gráfico de barras CSS-only últimos 6 meses (finBarGrow via --fh CSS var), lista de transações agrupada por data (Hoje/Ontem/Esta semana/Mais antigas), FAB fixo + modal Nova Transação com toggle receita/despesa e pills de categoria, estado vazio animado
 - CountUp atualizado com prop locale para pt-BR (toLocaleString)
 - is-finance adicionado ao App className; orb some quando finance ativa; FinanceView adicionado ao render chain do App
 - CSS prefixado com fin- (finFadeUp, finSlideIn, finBarGrow, finPop keyframes)
+
+**Jarvis 10 (atual):**
+- Refinamentos da Tela de Finanças: cards 10px padding + max-height 72px + font 22px; FAB 56px; barras do gráfico com gradiente mais escuro; remoção de monospace nos valores de transação; stagger de lista 40ms
+- Barras do gráfico crescem via IntersectionObserver (fin-chart--visible class → finBarGrow 0.5s ease-out)
+- Scroll-snap horizontal no gráfico para mobile
+- Edição de transação: ti-pencil aparece no hover → abre modal pré-preenchido; PATCH /transactions/:id no backend e Next.js route
+- Título da transação usa content.description se existir, senão title da entry
+- Paginação: 20 transações por página + botão "Ver mais" carrega próximas 20
+- normCat(): normaliza categoria com toLowerCase+normalize('NFD') para ignorar acentos
+- Auto-refresh silencioso a cada 30 segundos via setInterval
+- Troca de período com fade: setListVisible(false) → 150ms → setPeriod → setListVisible(true)
+- Date das transações oculto por padrão (desktop), aparece no hover; sempre visível no mobile
+- Ícones Tabler Icons webfont adicionados ao head (ti-trash, ti-pencil substituem emoji 🗑)
+- Endpoint PATCH /transactions/{tx_id} adicionado ao api.py
