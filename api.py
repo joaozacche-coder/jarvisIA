@@ -754,3 +754,9 @@ async def create_transaction(body: TransactionBody, user_id: str = "JoaoZacche")
         date=datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat(),
     )
     return result
+
+
+@app.delete("/transactions/{tx_id}")
+async def delete_transaction(tx_id: str, user_id: str = "JoaoZacche"):
+    ok = await sb.deletar_entry(entry_id=tx_id, user_id=user_id)
+    return {"ok": ok}
