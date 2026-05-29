@@ -189,7 +189,8 @@ LIVEKIT_API_SECRET=...
 1. ~~**Tela de Tarefas**~~ ✅ — dados reais do Supabase, loading state, modal Nova Tarefa, toggle done/undone, stats ao vivo
 2. ~~**Tela de Clientes**~~ ✅ — 3 clientes fixos sempre visíveis, CountUp, avatar, ponto pulsante, divider animado, cursor piscando, estado vazio, modal Novo Cliente, busca de contexto robusta
 3. ~~**Tela de Finanças**~~ ✅ — transações reais, saldo, gráfico IntersectionObserver, edit modal, paginação, normCat, auto-refresh 30s, Tabler icons
-4. **Tela de Agenda** — eventos do dia/semana
+4. ~~**Tela de Agenda**~~ ✅ — time grid 6am-23h, semana navegável com slide, indicador now pulsante, event cards por cor, modal criar/editar, FAB, motion design máximo
+5. **Tela de Segundo Cérebro** — notas, aprendizados, áreas de vida
 5. **Tela de Segundo Cérebro** — notas, aprendizados, áreas de vida
 
 ### FASE 2 — Chat inteligente com blocos
@@ -279,7 +280,16 @@ LIVEKIT_API_SECRET=...
 - is-finance adicionado ao App className; orb some quando finance ativa; FinanceView adicionado ao render chain do App
 - CSS prefixado com fin- (finFadeUp, finSlideIn, finBarGrow, finPop keyframes)
 
-**Jarvis 10 (atual):**
+**Jarvis 11 (atual):**
+- Tela de Agenda construída (AgendaView): time grid 6am-23h (ROW_H=64px), semana navegável com animação slide (agSlideL/agSlideR), indicador de hora atual pulsante (agPulse), event cards posicionados absolutamente por start_time/end_time com cor customizada via hexAlpha() → CSS custom props (--ev-bg/border/shadow)
+- FAB + modal criar/editar evento: título, data, horário início/fim, descrição, cliente, 6 cores
+- Optimistic UI com temp IDs + swap após resposta; dying animation ao deletar
+- is-agenda adicionado ao App className; orb/canvas dimmed quando agenda ativa; CSS prefixado ag-
+- Backend: EventBody Pydantic model, endpoints GET/POST/PATCH/DELETE /events em api.py
+- Next.js routes: /api/events/route.ts (GET+POST) e /api/events/[id]/route.ts (PATCH+DELETE)
+- Refinamentos finais da Tela de Finanças: getCat() substitui normCat(); período sem container; cards gap:2px; barras mín 6px
+
+**Jarvis 10:**
 - Refinamentos da Tela de Finanças: cards 10px padding + max-height 72px + font 22px; FAB 56px; barras do gráfico com gradiente mais escuro; remoção de monospace nos valores de transação; stagger de lista 40ms
 - Barras do gráfico crescem via IntersectionObserver (fin-chart--visible class → finBarGrow 0.5s ease-out)
 - Scroll-snap horizontal no gráfico para mobile
