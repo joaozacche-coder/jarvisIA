@@ -769,3 +769,55 @@ async def patch_transaction(tx_id: str, body: TransactionBody, user_id: str = "J
 async def delete_transaction(tx_id: str, user_id: str = "JoaoZacche"):
     ok = await sb.deletar_entry(entry_id=tx_id, user_id=user_id)
     return {"ok": ok}
+
+class EventBody(BaseModel):
+    title: str
+    date: str = ""
+    start_time: str = ""
+    end_time: str = ""
+    description: str = ""
+    client: str = ""
+    color: str = "#534AB7"
+
+@app.get("/events")
+async def list_events(user_id: str = "JoaoZacche", limit: int = 200):
+    entries = await sb.listar_entries(user_id=user_id, type="event", limit=limit)
+    return {"events": entries}
+
+@app.post("/events")
+async def create_event(body: EventBody, user_id: str = "JoaoZacche"):
+    entry = await sb.criar_entry(
+        user_id=user_id,
+        type="event",
+        title=body.title,
+        content={
+            "date": body.date,
+            "start_time": body.start_time,
+            "end_time": body.end_time,
+            "description": body.description,
+            "client": body.client,
+            "color": body.color,
+        },
+    )
+    return {"event": entry}
+
+@app.patch("/events/{ev_id}")
+async def patch_event(ev_id: str, body: EventBody, user_id: str = "JoaoZacche"):
+    updates = {
+        "title": body.title,
+        "content": {
+            "date": body.date,
+            "start_time": body.start_time,
+            "end_time": body.end_time,
+            "description": body.description,
+            "client": body.client,
+            "color": body.color,
+        },
+    }
+    ok = await sb.atualizar_entry(entry_id=ev_id, user_id=user_id, updates=updates)
+    return {"ok": ok}
+
+@app.delete("/events/{ev_id}")
+async def delete_event(ev_id: str, user_id: str = "JoaoZacche"):
+    ok = await sb.deletar_entry(entry_id=ev_id, user_id=user_id)
+    return {"ok": ok}
