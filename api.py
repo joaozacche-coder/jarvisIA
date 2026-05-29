@@ -756,6 +756,15 @@ async def create_transaction(body: TransactionBody, user_id: str = "JoaoZacche")
     return result
 
 
+@app.patch("/transactions/{tx_id}")
+async def patch_transaction(tx_id: str, body: TransactionBody, user_id: str = "JoaoZacche"):
+    updates = {"content": {"amount": body.amount, "transaction_type": body.transaction_type, "category": body.category}}
+    if body.title:
+        updates["title"] = body.title
+    ok = await sb.atualizar_entry(entry_id=tx_id, user_id=user_id, updates=updates)
+    return {"ok": ok}
+
+
 @app.delete("/transactions/{tx_id}")
 async def delete_transaction(tx_id: str, user_id: str = "JoaoZacche"):
     ok = await sb.deletar_entry(entry_id=tx_id, user_id=user_id)
