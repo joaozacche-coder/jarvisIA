@@ -19,7 +19,14 @@
       "Bash(curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' -d '{\"message\": \"olá, tudo bem?\", \"user_id\": \"JoaoZacche\"}')",
       "Bash(pkill -f \"uvicorn api:app\")",
       "Bash(curl -s -X POST http://localhost:8001/chat -H 'Content-Type: application/json' -d '{\"message\": \"olá, tudo bem?\", \"user_id\": \"JoaoZacche\"}')",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(awk -F: '$1 > 2999 && $1 < 3950')",
+      "Bash(sed -n '960,965p' /Users/zacche/Desktop/jarvisnewfront/public/index.html)",
+      "Bash(sed -n '1095,1108p' /Users/zacche/Desktop/jarvisnewfront/public/index.html)",
+      "Bash(sed -n '3144,3170p' /Users/zacche/Desktop/jarvisnewfront/public/index.html)",
+      "Bash(sed -n '3325,3380p' /Users/zacche/Desktop/jarvisnewfront/public/index.html)",
+      "Bash(git -C /Users/zacche/Desktop/jarvisnewfront status JARVIS_CONTEXT.md)",
+      "Bash(npx vercel *)"
     ]
   }
 }

@@ -15,6 +15,7 @@
 5. **Atualize JARVIS_CONTEXT.md** ao final de cada sessão
 6. **Prompts cirúrgicos** — mexa APENAS no que foi pedido, nada mais
 7. **Bugs visíveis = corrigir sem pedir permissão** — se durante a leitura do código encontrar inconsistência, CSS conflitante, ou comportamento não intencional, corrige junto com a tarefa principal e documenta no commit.
+8. **Design dopaminérgico é padrão** — todo novo componente deve ter: animação de entrada (`pvFadeUp` ou similar), hover com feedback visual (lift + shadow), ação com micro-interação (scale press, confetti em milestone).
 
 ---
 
