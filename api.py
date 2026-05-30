@@ -821,3 +821,74 @@ async def patch_event(ev_id: str, body: EventBody, user_id: str = "JoaoZacche"):
 async def delete_event(ev_id: str, user_id: str = "JoaoZacche"):
     ok = await sb.deletar_entry(entry_id=ev_id, user_id=user_id)
     return {"ok": ok}
+
+
+# ─────────────────────────────────────────
+# PERSONAL REST (notas, links, senhas, kanban, metas, perfil)
+# ─────────────────────────────────────────
+
+class PersonalBody(BaseModel):
+    title: str = ""
+    type: str = "note"
+    content: dict = {}
+    tags: List[str] = []
+
+class PersonalPatch(BaseModel):
+    title: Optional[str] = None
+    content: Optional[dict] = None
+    tags: Optional[List[str]] = None
+    status: Optional[str] = None
+
+_PERSONAL_EXCLUDED_TAGS = {"link", "senha", "kanban", "perfil", "contexto-vivo"}
+
+@app.get("/personal")
+async def list_personal(tab: str = "notes", user_id: str = "JoaoZacche"):
+    if tab == "notes":
+        all_notes = await sb.listar_entries(user_id=user_id, type="note", limit=200)
+        entries = [e for e in all_notes
+                   if not any(t in _PERSONAL_EXCLUDED_TAGS for t in (e.get("tags") or []))]
+    elif tab == "links":
+        entries = await sb.listar_entries(user_id=user_id, type="note", tags=["link"], limit=100)
+    elif tab == "passwords":
+        entries = await sb.listar_entries(user_id=user_id, type="note", tags=["senha"], limit=100)
+    elif tab == "kanban":
+        entries = await sb.listar_entries(user_id=user_id, type="note", tags=["kanban"], limit=200)
+    elif tab == "goals":
+        entries = await sb.listar_entries(user_id=user_id, type="goal", limit=100)
+    elif tab == "profile":
+        entries = await sb.listar_entries(user_id=user_id, type="note", tags=["perfil"], limit=1)
+    else:
+        entries = []
+    return {"entries": entries}
+
+@app.post("/personal")
+async def create_personal(body: PersonalBody, user_id: str = "JoaoZacche"):
+    entry = await sb.criar_entry(
+        user_id=user_id,
+        type=body.type,
+        title=body.title or "Sem título",
+        content=body.content,
+        tags=body.tags,
+    )
+    return entry
+
+@app.patch("/personal/{entry_id}")
+async def update_personal(entry_id: str, body: PersonalPatch, user_id: str = "JoaoZacche"):
+    updates: dict = {}
+    if body.title is not None:
+        updates["title"] = body.title
+    if body.content is not None:
+        updates["content"] = body.content
+    if body.tags is not None:
+        updates["tags"] = body.tags
+    if body.status is not None:
+        updates["status"] = body.status
+    if not updates:
+        return {"ok": False}
+    ok = await sb.atualizar_entry(entry_id=entry_id, user_id=user_id, updates=updates)
+    return {"ok": ok}
+
+@app.delete("/personal/{entry_id}")
+async def delete_personal(entry_id: str, user_id: str = "JoaoZacche"):
+    ok = await sb.deletar_entry(entry_id=entry_id, user_id=user_id)
+    return {"ok": ok}
