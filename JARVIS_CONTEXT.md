@@ -163,6 +163,8 @@ LIVEKIT_API_SECRET=...
 - `src/app/api/tasks/route.ts` — proxy para GET/POST /tasks
 - `src/app/api/tasks/[id]/route.ts` — proxy para PATCH/DELETE /tasks/:id
 - `src/app/api/context/route.ts` — proxy para GET /context?name=X
+- `src/app/api/personal/route.ts` — proxy para GET/POST /personal
+- `src/app/api/personal/[id]/route.ts` — proxy para PATCH/DELETE /personal/:id
 
 ---
 
@@ -190,7 +192,7 @@ LIVEKIT_API_SECRET=...
 2. ~~**Tela de Clientes**~~ ✅ — 3 clientes fixos sempre visíveis, CountUp, avatar, ponto pulsante, divider animado, cursor piscando, estado vazio, modal Novo Cliente, busca de contexto robusta
 3. ~~**Tela de Finanças**~~ ✅ — transações reais, saldo, gráfico IntersectionObserver, edit modal, paginação, normCat, auto-refresh 30s, Tabler icons
 4. ~~**Tela de Agenda**~~ ✅ — 3 views Dia/Semana/Mês, swipe/drag, slide animation, time grid ROW_H=60px, now-line, event cards, FAB+modal, briefing diário estruturado (EVENTOS/TAREFAS/FOCO com ícones)
-5. **Tela de Segundo Cérebro** — notas, aprendizados, áreas de vida
+5. ~~**Tela Pessoal**~~ ✅ — 6 tabs (Notas, Links, Senhas, Quadro Kanban, Metas, Perfil), CRUD Supabase, AES-256-GCM
 
 ### FASE 2 — Chat inteligente com blocos
 6. Componentes visuais reutilizáveis (card de tarefa, card de cliente, pill de métrica)
@@ -313,3 +315,18 @@ LIVEKIT_API_SECRET=...
 - Visual estruturado: ti-calendar roxo (Eventos), ti-circle-check verde (Tarefas), ti-target âmbar (Foco com destaque)
 - Preview colapsado mostra conteúdo de EVENTOS sem o label; footer com "→ Abrir chat" + "↻ Atualizar" + timestamp
 - Briefing auto-abre ao entrar na view Dia; fetch via /api/chat proxy (sem CORS)
+
+**Jarvis 13 (2026-05-30):**
+- Tela Pessoal construída no index.html com 6 tabs: Notas, Links, Senhas, Quadro Kanban, Metas, Perfil
+- Sidebar: ícone de notas substituído por SVG brain (3 paths), id 'personal', tooltip 'Pessoal'
+- Tab underline animado: translateX(tabIdx*100%) em elemento com width:calc(100%/6)
+- Notas: CRUD completo, campo de tags, filtro por tag, modal de nova nota
+- Links: título + URL + categoria, filtro por categoria, abrir em nova aba
+- Senhas: AES-256-GCM via Web Crypto API (PBKDF2, 100k iterações, salt fixo), clipboard limpo após 30s, campo de senha mascarado
+- Quadro Kanban: HTML5 drag & drop entre colunas (A Fazer / Em Andamento / Feito), PATCH /personal/:id ao mover card
+- Metas: barra de progresso animada (CSS var --prog), data de vencimento, incremento/decremento de progresso
+- Perfil: campos pessoais (nome, email, telefone, endereço + 3 seções customizáveis), salvo como type:'note' tag:'perfil'
+- Backend api.py: PersonalBody + PersonalPatch Pydantic models; GET /personal?tab= (notes/links/passwords/kanban/goals/profile); POST/PATCH/DELETE /personal/:id; Notes tab exclui tags link/senha/kanban/perfil/contexto-vivo
+- Next.js routes: /api/personal/route.ts (GET+POST) e /api/personal/[id]/route.ts (PATCH+DELETE)
+- BUG FIX deploy Vercel: params em rotas dinâmicas tipado como Promise<{id:string}> + await params — obrigatório no Next.js 16; sem essa fix o build falhava com type error
+- CSS prefixado pv- (pvFadeUp, pvSlideIn, pvPop, pvGlow, pvBounce keyframes); is-personal dimma orb e canvas
