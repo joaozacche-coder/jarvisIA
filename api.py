@@ -892,3 +892,54 @@ async def update_personal(entry_id: str, body: PersonalPatch, user_id: str = "Jo
 async def delete_personal(entry_id: str, user_id: str = "JoaoZacche"):
     ok = await sb.deletar_entry(entry_id=entry_id, user_id=user_id)
     return {"ok": ok}
+
+
+# ─────────────────────────────────────────
+# REMINDERS REST
+# ─────────────────────────────────────────
+
+class ReminderBody(BaseModel):
+    title: str
+    due_datetime: str = ""
+    repeat: str = "none"  # none / daily / weekly
+    notes: str = ""
+
+@app.get("/reminders")
+async def list_reminders(user_id: str = "JoaoZacche"):
+    entries = await sb.listar_entries(user_id=user_id, type="reminder", limit=200)
+    return {"reminders": entries}
+
+@app.post("/reminders")
+async def create_reminder(body: ReminderBody, user_id: str = "JoaoZacche"):
+    entry = await sb.criar_entry(
+        user_id=user_id,
+        type="reminder",
+        title=body.title,
+        content={
+            "due_datetime": body.due_datetime,
+            "repeat": body.repeat,
+            "notes": body.notes,
+        },
+    )
+    return {"reminder": entry}
+
+@app.patch("/reminders/{rm_id}")
+async def patch_reminder(rm_id: str, body: ReminderBody, user_id: str = "JoaoZacche"):
+    ok = await sb.atualizar_entry(
+        entry_id=rm_id,
+        user_id=user_id,
+        updates={
+            "title": body.title,
+            "content": {
+                "due_datetime": body.due_datetime,
+                "repeat": body.repeat,
+                "notes": body.notes,
+            },
+        },
+    )
+    return {"ok": ok}
+
+@app.delete("/reminders/{rm_id}")
+async def delete_reminder(rm_id: str, user_id: str = "JoaoZacche"):
+    ok = await sb.deletar_entry(entry_id=rm_id, user_id=user_id)
+    return {"ok": ok}
