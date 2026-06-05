@@ -150,6 +150,7 @@ TOOLS = [
                         "descricao": {"type": "string"},
                         "due_date": {"type": "string", "description": "ISO 8601"},
                         "date": {"type": "string", "description": "ISO 8601"},
+                        "due_datetime": {"type": "string", "description": "Para lembretes: use YYYY-MM-DD se não tem hora; YYYY-MM-DDTHH:MM se tem hora explícita. NUNCA invente hora."},
                         "tags": {"type": "array", "items": {"type": "string"}},
                         "amount": {"type": "number"},
                         "transaction_type": {"type": "string", "description": "receita ou despesa"},
@@ -396,13 +397,18 @@ async def _executar_ferramenta(fn: str, args: dict, user_id: str) -> str:
     if fn == "criar_entry":
         entry_type = args["type"]
         content = _build_content(args)
+        date_val = args.get("date")
+        if entry_type == "reminder" and args.get("due_datetime"):
+            content["due_datetime"] = args["due_datetime"]
+            if not date_val:
+                date_val = args["due_datetime"]
         entry = await sb.criar_entry(
             user_id=user_id,
             type=entry_type,
             title=args["title"],
             content=content,
             due_date=args.get("due_date"),
-            date=args.get("date"),
+            date=date_val,
             tags=list(args["tags"]) if args.get("tags") else [],
         )
         label = _TYPE_LABELS.get(entry_type, entry_type)
