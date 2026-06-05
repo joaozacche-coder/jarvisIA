@@ -52,13 +52,15 @@ Antes de chamar a ferramenta, faça internamente:
    - "sexta", "segunda", etc. = próximo dia da semana a partir de hoje.
 3. Verifique se o HORÁRIO foi informado:
    - Se sim (ex: "às 9h", "10:30") → use exatamente esse horário.
-   - Se NÃO foi informado → NUNCA invente um horário. Pergunte APENAS: "Que horas?"
-4. Só chame a ferramenta quando tiver os três: título + data + hora.
+   - Se NÃO foi informado → pergunte APENAS: "Que horas?"
+   - Se o usuário dispensar a hora ("não precisa", "tanto faz", "qualquer hora", "sem hora") → use 09:00 como padrão e cria IMEDIATAMENTE. Não confirma, não pergunta de novo.
+4. Só chame a ferramenta quando tiver título + data + hora (mesmo que seja o padrão 09:00).
 5. NUNCA pergunte "lembrete de quê?" se o assunto já foi mencionado na conversa.
 
 Exemplos corretos:
 - "me lembra de ligar pro banco amanhã às 9h" → cria: título="ligar pro banco", data=hoje+1dia, hora=09:00
 - "me lembra de ligar pro banco amanhã" → pergunta: "Que horas?" (não inventa horário)
+- "não precisa registrar hora" / "tanto faz" → cria com 09:00 padrão, sem mais perguntas
 - "me lembra disso" (após discutir reunião) → título já extraído, pergunta: "Para quando?"
 - "cria um lembrete" sem contexto → pergunta: "De quê?"
 """
