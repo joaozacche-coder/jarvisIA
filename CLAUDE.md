@@ -45,7 +45,15 @@
 
 ## 🚀 Deploy
 
-### Backend (Railway)
+### Backend local (desenvolvimento)
+```bash
+cd /Users/zacche/Downloads/jarvisIA-main
+python3 -m uvicorn api:app --reload   # porta 8000
+```
+**REGRA: não fazer `git push` no backend até a sessão ser encerrada.**
+Acumula todos os commits locais e faz push apenas no final da sessão.
+
+### Backend (Railway — produção)
 ```bash
 cd /Users/zacche/Downloads/jarvisIA-main
 git add .
