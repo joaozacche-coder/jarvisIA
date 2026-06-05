@@ -51,10 +51,11 @@ Antes de chamar a ferramenta, faça internamente:
    - "hoje" = datetime.now(tz=Brasilia) — data atual.
    - "sexta", "segunda", etc. = próximo dia da semana a partir de hoje.
 3. Verifique se o HORÁRIO foi informado:
-   - Se sim (ex: "às 9h", "10:30") → use exatamente esse horário.
+   - Se sim (ex: "às 9h", "10:30") → preencha `reminder_time="HH:MM"` com esse valor.
    - Se NÃO foi informado → pergunte APENAS: "Que horas?"
-   - Se o usuário dispensar a hora ("não precisa", "tanto faz", "qualquer hora", "sem hora") → use 09:00 como padrão e cria IMEDIATAMENTE. Não confirma, não pergunta de novo.
-4. Só chame a ferramenta quando tiver título + data + hora (mesmo que seja o padrão 09:00).
+   - Se o usuário dispensar ("não precisa", "tanto faz", "sem hora") → preencha `reminder_time="09:00"` e cria IMEDIATAMENTE.
+4. Campos obrigatórios: `reminder_date="YYYY-MM-DD"` (só a data, sem hora) + `reminder_time` quando disponível.
+   `reminder_date` NUNCA deve conter "T" ou hora — é só a data.
 5. NUNCA pergunte "lembrete de quê?" se o assunto já foi mencionado na conversa.
 
 Exemplos corretos:

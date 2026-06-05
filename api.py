@@ -150,7 +150,8 @@ TOOLS = [
                         "descricao": {"type": "string"},
                         "due_date": {"type": "string", "description": "ISO 8601"},
                         "date": {"type": "string", "description": "ISO 8601"},
-                        "due_datetime": {"type": "string", "description": "Para lembretes: use YYYY-MM-DD se não tem hora; YYYY-MM-DDTHH:MM se tem hora explícita. NUNCA invente hora."},
+                        "reminder_date": {"type": "string", "description": "Para type=reminder: data no formato YYYY-MM-DD. Apenas a data, sem hora."},
+                        "reminder_time": {"type": "string", "description": "Para type=reminder: hora no formato HH:MM. Preencha SOMENTE se o usuário informou explicitamente. Se não informou, OMITA este campo."},
                         "tags": {"type": "array", "items": {"type": "string"}},
                         "amount": {"type": "number"},
                         "transaction_type": {"type": "string", "description": "receita ou despesa"},
@@ -398,10 +399,14 @@ async def _executar_ferramenta(fn: str, args: dict, user_id: str) -> str:
         entry_type = args["type"]
         content = _build_content(args)
         date_val = args.get("date")
-        if entry_type == "reminder" and args.get("due_datetime"):
-            content["due_datetime"] = args["due_datetime"]
-            if not date_val:
-                date_val = args["due_datetime"]
+        if entry_type == "reminder":
+            r_date = args.get("reminder_date") or args.get("due_datetime", "")
+            r_time = args.get("reminder_time")
+            if r_date:
+                dt_val = f"{r_date[:10]}T{r_time}" if r_time else r_date[:10]
+                content["due_datetime"] = dt_val
+                if not date_val:
+                    date_val = dt_val
         entry = await sb.criar_entry(
             user_id=user_id,
             type=entry_type,
