@@ -330,3 +330,17 @@ LIVEKIT_API_SECRET=...
 - Next.js routes: /api/personal/route.ts (GET+POST) e /api/personal/[id]/route.ts (PATCH+DELETE)
 - BUG FIX deploy Vercel: params em rotas dinâmicas tipado como Promise<{id:string}> + await params — obrigatório no Next.js 16; sem essa fix o build falhava com type error
 - CSS prefixado pv- (pvFadeUp, pvSlideIn, pvPop, pvGlow, pvBounce keyframes); is-personal dimma orb e canvas
+
+**Jarvis 14 (2026-06-05):**
+- Fix prompts.py: Jarvis não repete contexto já informado pelo usuário ao criar lembretes; extrai título da conversa antes de chamar criar_entry
+- Dev local configurado: `src/lib/config.ts` centraliza API_BASE = process.env.API_URL ?? Railway; `.env.local` com API_URL=http://localhost:8000; todos os 13 arquivos de rota Next.js atualizados para usar API_BASE
+- RemindersView fixes: sidebar z-index:6 (era 3, sidebar era 5 → sobreposição); cards mostram due_datetime com fallback para r.date (agent-created); botão editar abre modal pré-preenchido; fmtDateTime() trata date-only strings como local time (evita UTC midnight = dia anterior em UTC-3)
+- RemindersView: integração de eventos — seções Hoje/Próximos mostram eventos readonly como cards com pill âmbar, carregados via /api/events
+- Arquitetura reminder sem hora: `reminder_date` (YYYY-MM-DD, obrigatório) + `reminder_time` (HH:MM, opcional) separados no schema da ferramenta criar_entry — impede modelo de inventar horário; backend combina: `r_date[:10]T{r_time}` se time presente, senão só `r_date[:10]`
+- SettingsView construída no index.html: 5 seções com sidenav lateral (Perfil, Personalização, Gamificação, Planos, Integrações); CSS prefixado st- (keyframes stFadeUp, stSpring, stXpGrow, stPulse); is-settings dimma orb
+  - Perfil: avatar com inicial, nome/email/timezone/botName, picker de 6 avatares do assistente; salva via POST/PATCH /api/personal (type=note, tag=perfil)
+  - Personalização: paleta de 6 cores com applyColor() → document.documentElement.style.setProperty('--accent', color) em tempo real; pills de tom do agente; multi-select de áreas de foco
+  - Gamificação: card de XP/nível com barra animada stXpGrow, card streak 🔥, grid 12 badges (4 unlocked), tabela XP por ação — tudo mock data por agora
+  - Planos: 3 cards FREE/PRO R$47/BUSINESS R$197 com destaque popular; barra de uso de mensagens
+  - Integrações: Google Calendar, Gmail, WhatsApp, Instagram com toggle Conectar/Desconectar; botão exportar JSON; limpar memória com modal de confirmação
+- Backend: commits pendentes da sessão anterior pushados (reminder_date/time, prompts.py fixes)
