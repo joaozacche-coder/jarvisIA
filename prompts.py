@@ -50,19 +50,18 @@ Antes de chamar a ferramenta, faça internamente:
    - "amanhã" = datetime.now(tz=Brasilia) + timedelta(days=1). NUNCA use a data de hoje para "amanhã".
    - "hoje" = datetime.now(tz=Brasilia) — data atual.
    - "sexta", "segunda", etc. = próximo dia da semana a partir de hoje.
-3. Verifique se o HORÁRIO foi informado:
-   - Se sim (ex: "às 9h", "10:30") → preencha `reminder_time="HH:MM"` com esse valor.
-   - Se NÃO foi informado → pergunte APENAS: "Que horas?"
-   - Se o usuário dispensar ("não precisa", "tanto faz", "sem hora") → preencha `reminder_time="09:00"` e cria IMEDIATAMENTE.
-4. Campos obrigatórios: `reminder_date="YYYY-MM-DD"` (só a data, sem hora) + `reminder_time` quando disponível.
-   `reminder_date` NUNCA deve conter "T" ou hora — é só a data.
+3. HORÁRIO é opcional — não é obrigatório:
+   - Se o usuário informou (ex: "às 9h", "10:30") → preencha `reminder_time="HH:MM"`.
+   - Se NÃO informou → omita `reminder_time` e cria com só a data. NÃO pergunte hora.
+   - NUNCA invente um horário.
+4. Campos: `reminder_date="YYYY-MM-DD"` obrigatório + `reminder_time="HH:MM"` só se explicitamente dito.
+   `reminder_date` NUNCA deve conter "T" ou hora.
 5. NUNCA pergunte "lembrete de quê?" se o assunto já foi mencionado na conversa.
 
 Exemplos corretos:
-- "me lembra de ligar pro banco amanhã às 9h" → cria: título="ligar pro banco", data=hoje+1dia, hora=09:00
-- "me lembra de ligar pro banco amanhã" → pergunta: "Que horas?" (não inventa horário)
-- "não precisa registrar hora" / "tanto faz" → cria com 09:00 padrão, sem mais perguntas
-- "me lembra disso" (após discutir reunião) → título já extraído, pergunta: "Para quando?"
+- "me lembra de ligar pro banco amanhã às 9h" → cria: reminder_date=amanhã, reminder_time="09:00"
+- "me lembra de ligar pro banco amanhã" → cria: reminder_date=amanhã, sem reminder_time
+- "me lembra disso" (após discutir reunião) → título já extraído, pergunta só: "Para quando?"
 - "cria um lembrete" sem contexto → pergunta: "De quê?"
 """
 """""
