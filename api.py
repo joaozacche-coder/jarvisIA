@@ -477,6 +477,87 @@ async def _executar_ferramenta(fn: str, args: dict, user_id: str) -> str:
 
 
 # ─────────────────────────────────────────
+# HELPERS — detecção de contexto para mini-cards
+# ─────────────────────────────────────────
+
+def _detect_data_type(message: str, response_text: str, calls: list):
+    call_str = " ".join(
+        getattr(c, "name", "") + " " + str(getattr(c, "args", ""))
+        for c in calls
+    ).lower()
+    if any(k in call_str for k in ["task", "tarefa"]):
+        return "tasks"
+    if any(k in call_str for k in ["transaction", "financ"]):
+        return "finance"
+    if any(k in call_str for k in ["event", "agenda"]):
+        return "events"
+    if any(k in call_str for k in ["reminder", "lembrete"]):
+        return "reminders"
+
+    combined = (message + " " + response_text).lower()
+    if any(k in combined for k in ["tarefa", "pendente", "a fazer", "checklist", "listar tarefas"]):
+        return "tasks"
+    if any(k in combined for k in ["saldo", "receita", "despesa", "gasto", "finanças", "transação"]):
+        return "finance"
+    if any(k in combined for k in ["agenda", "evento", "reunião", "compromisso", "hoje tem", "horário"]):
+        return "events"
+    if any(k in combined for k in ["lembrete", "me lembra", "me avisa", "não esquecer"]):
+        return "reminders"
+    if any(k in combined for k in ["cliente", "gracie", "soho", "ddparts", "portfólio"]):
+        return "clients"
+    return None
+
+
+async def _fetch_context_data(data_type: str, user_id: str, tarefas, agora):
+    try:
+        if data_type == "tasks":
+            tasks = tarefas if not isinstance(tarefas, Exception) else []
+            return [
+                {"id": t.get("id"), "title": t.get("title"),
+                 "status": t.get("status", "active"), "tags": t.get("tags", [])}
+                for t in (tasks or [])[:5]
+            ]
+        if data_type == "finance":
+            txns = await sb.listar_entries(user_id=user_id, type="transaction", limit=100)
+            if isinstance(txns, Exception) or not txns:
+                return {"saldo": 0, "receitas": 0, "despesas": 0}
+            rec = sum(float(t.get("content", {}).get("amount", 0)) for t in txns if t.get("content", {}).get("transaction_type") == "receita")
+            desp = sum(float(t.get("content", {}).get("amount", 0)) for t in txns if t.get("content", {}).get("transaction_type") == "despesa")
+            return {"saldo": round(rec - desp, 2), "receitas": round(rec, 2), "despesas": round(desp, 2)}
+        if data_type == "events":
+            events = await sb.listar_entries(user_id=user_id, type="event", limit=50)
+            if isinstance(events, Exception) or not events:
+                return []
+            today = agora.strftime("%Y-%m-%d")
+            today_evs = [
+                {"id": e.get("id"), "title": e.get("title"),
+                 "start_time": e.get("content", {}).get("start_time", ""),
+                 "color": e.get("content", {}).get("color", "#534AB7")}
+                for e in events
+                if e.get("content", {}).get("start_time", "")[:10] == today
+            ]
+            return sorted(today_evs, key=lambda x: x["start_time"])[:5]
+        if data_type == "reminders":
+            rems = await sb.listar_entries(user_id=user_id, type="reminder", status="active", limit=10)
+            if isinstance(rems, Exception) or not rems:
+                return []
+            return [
+                {"id": r.get("id"), "title": r.get("title"),
+                 "due_datetime": r.get("content", {}).get("due_datetime") or r.get("due_date")}
+                for r in rems[:5]
+            ]
+        if data_type == "clients":
+            return [
+                {"name": "Gracie Barra", "situacao": None},
+                {"name": "SoHo", "situacao": None},
+                {"name": "DDpartssolution", "situacao": None},
+            ]
+    except Exception:
+        pass
+    return None
+
+
+# ─────────────────────────────────────────
 # ROTAS
 # ─────────────────────────────────────────
 
@@ -646,10 +727,18 @@ async def chat(req: ChatRequest):
                 text_parts.append(t)
                 yield f"data: {_json.dumps({'chunk': t})}\n\n"
 
-            yield "data: [DONE]\n\n"
+            # Detecta contexto e busca dados para mini-card
+            full_text = "".join(text_parts)
+            data_type = _detect_data_type(req.message, full_text, calls)
+            ctx_data = await _fetch_context_data(data_type, user_id, tarefas, agora) if data_type else None
+
+            done_evt: dict = {"done": True}
+            if data_type and ctx_data is not None:
+                done_evt["data_type"] = data_type
+                done_evt["data"] = ctx_data
+            yield f"data: {_json.dumps(done_evt)}\n\n"
 
             # Salva no Mem0 após stream completo
-            full_text = "".join(text_parts)
             try:
                 await mem0_client.add([
                     {"role": "user", "content": req.message},
