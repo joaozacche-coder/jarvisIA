@@ -1,8 +1,10 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List
 import os
 import asyncio
+import json as _json
 from datetime import datetime
 import pytz
 from dotenv import load_dotenv
@@ -592,36 +594,75 @@ async def chat(req: ChatRequest):
             if hasattr(part, "function_call") and part.function_call
         ]
 
+        followup_contents = None
         if calls:
             resultados_tools = await asyncio.gather(*[
                 _executar_ferramenta(call.name, dict(call.args), user_id)
                 for call in calls
             ])
             resumo_tecnico = "\n".join(resultados_tools)
-            followup = gemini.models.generate_content(
-                model="gemini-2.5-flash",
-                config={"system_instruction": system},
-                contents=(
-                    f"Você acabou de executar com sucesso as seguintes ações. "
-                    f"Resultado interno: {resumo_tecnico}. "
-                    f"Confirme de forma natural e elegante para o Chefe, "
-                    f"sem mostrar IDs técnicos, status internos ou colchetes."
-                ),
+            followup_contents = (
+                f"Você acabou de executar com sucesso as seguintes ações. "
+                f"Resultado interno: {resumo_tecnico}. "
+                f"Confirme de forma natural e elegante para o Chefe, "
+                f"sem mostrar IDs técnicos, status internos ou colchetes."
             )
-            response_text = followup.text or resumo_tecnico
-        else:
-            response_text = result.text or ""
 
-        # Salva no Mem0
-        try:
-            await mem0_client.add([
-                {"role": "user", "content": req.message},
-                {"role": "assistant", "content": response_text},
-            ], user_id=user_id)
-        except Exception:
-            pass
+        loop = asyncio.get_event_loop()
 
-        return {"response": response_text}
+        async def generate():
+            text_parts = []
+
+            if followup_contents:
+                # Streaming real do followup via thread worker + Queue
+                q: asyncio.Queue = asyncio.Queue()
+
+                def _worker():
+                    try:
+                        for chunk in gemini.models.generate_content_stream(
+                            model="gemini-2.5-flash",
+                            config={"system_instruction": system},
+                            contents=followup_contents,
+                        ):
+                            t = getattr(chunk, "text", "") or ""
+                            if t:
+                                asyncio.run_coroutine_threadsafe(q.put(t), loop)
+                    except Exception as ex:
+                        asyncio.run_coroutine_threadsafe(q.put(f"[erro: {ex}]"), loop)
+                    finally:
+                        asyncio.run_coroutine_threadsafe(q.put(None), loop)
+
+                loop.run_in_executor(None, _worker)
+
+                while True:
+                    t = await asyncio.wait_for(q.get(), timeout=30)
+                    if t is None:
+                        break
+                    text_parts.append(t)
+                    yield f"data: {_json.dumps({'chunk': t})}\n\n"
+            else:
+                # Sem ferramentas: yield único com texto completo
+                t = result.text or ""
+                text_parts.append(t)
+                yield f"data: {_json.dumps({'chunk': t})}\n\n"
+
+            yield "data: [DONE]\n\n"
+
+            # Salva no Mem0 após stream completo
+            full_text = "".join(text_parts)
+            try:
+                await mem0_client.add([
+                    {"role": "user", "content": req.message},
+                    {"role": "assistant", "content": full_text},
+                ], user_id=user_id)
+            except Exception:
+                pass
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
     except HTTPException:
         raise
     except Exception as e:
