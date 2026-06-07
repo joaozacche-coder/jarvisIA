@@ -344,3 +344,14 @@ LIVEKIT_API_SECRET=...
   - Planos: 3 cards FREE/PRO R$47/BUSINESS R$197 com destaque popular; barra de uso de mensagens
   - Integrações: Google Calendar, Gmail, WhatsApp, Instagram com toggle Conectar/Desconectar; botão exportar JSON; limpar memória com modal de confirmação
 - Backend: commits pendentes da sessão anterior pushados (reminder_date/time, prompts.py fixes)
+
+**Jarvis 15 (2026-06-07):**
+- Cave Mode: skill criada em `/Users/zacche/.claude/skills/cave-mode/SKILL.md`; regra 9 adicionada aos dois CLAUDE.md (frontend + backend)
+- Hero redesign completo: layout centralizado com `position:fixed` por elemento; `fadeUpCentered` keyframe criado para preservar `translateX(-50%)` após animação (bug crítico: `fadeUp` terminava com `transform:none` destruindo o offset); bloco `.hero` morto removido (referenciava `--orb-top` não setado)
+- Hero layout final: `hero-phrase` top:8vh (tagline sutil, font:12px, opacity:0.22), `hero-greeting` top:15vh (nome+saudação, font:14px, opacity:0.55), `orb-ambient` top:44vh center (ORB_SIZE:280), `hero-rank` bottom:14vh, `hero-clock` top:24px right:24px
+- Composer desacoplado: `input-shell` trocado de `position:absolute` com `calc(--orb-top + --orb-size + --orb-gap)` para `position:fixed; bottom:6vh` — remove dependência total das CSS vars do orb
+- Responsivo mobile (≤600px): `--sb-w:0` colapsa automaticamente todos os paddings das views; sidebar vira bottom tab bar (56px, blur, border-top); `fadeUpCentered` para indicador ativo no topo; `@keyframes navIn` redefinido para slide de baixo
+- Mobile UX: `viewport-fit=cover`; `visualViewport` listener → `--keyboard-h` CSS var sobe composer com teclado; `ORB_SIZE = window.innerWidth < 600 ? 200 : 280`; touch targets 44×44px; `-webkit-overflow-scrolling:touch`; `ag-view overflow-y:auto`; `pv/rm/st-view bottom` fixo acima da nav
+- Mobile UX 2: `input font-size:16px` previne zoom iOS; `white-space:normal; padding:0 20px` no hero evita overflow; fabs (fin/ag/tv) acima da nav; bottom sheets com `@keyframes sheetUp` + safe area padding; `@media (orientation:landscape) and (max-height:500px)` esconde hero e centraliza composer
+- PWA: `manifest.json` criado (standalone, theme #0A0A12, ícone SVG); `icon-192.svg` gerado; meta tags `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style: black-translucent`, `theme-color`; app instalável via "Adicionar à Tela de Início" no Safari iOS
+- Polish global: `-webkit-tap-highlight-color:transparent` remove flash cinza no tap; `touch-action:manipulation` elimina delay 300ms; `overscroll-behavior:none` no `.app` previne bounce do browser atrás do app
