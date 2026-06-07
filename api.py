@@ -113,6 +113,8 @@ FULL_INSTRUCTION = AGENT_INSTRUCTION + PROACTIVE_RULES + SEGUNDO_CEREBRO_RULES
 class ChatRequest(BaseModel):
     message: str
     user_id: str = "JoaoZacche"
+    tone: Optional[str] = None
+    history: List[dict] = []
 
 
 class CreateTaskRequest(BaseModel):
@@ -686,11 +688,24 @@ async def chat(req: ChatRequest):
 
         mensagem_com_contexto = f"[Contexto: hoje é {data_hora}]\n\n{req.message}"
 
+        # Monta histórico multi-turn para o Gemini
+        contents = []
+        for msg in (req.history or [])[-8:]:
+            role = "user" if msg.get("role") == "user" else "model"
+            text = (msg.get("text") or "").strip()
+            if text:
+                contents.append({"role": role, "parts": [{"text": text}]})
+        contents.append({"role": "user", "parts": [{"text": mensagem_com_contexto}]})
+
         gemini = genai.Client(api_key=api_key)
         result = gemini.models.generate_content(
             model="gemini-2.5-flash",
-            config={"system_instruction": system, "tools": TOOLS},
-            contents=mensagem_com_contexto,
+            config={
+                "system_instruction": system,
+                "tools": TOOLS,
+                "thinking_config": {"thinking_budget": 1024},
+            },
+            contents=contents,
         )
 
         calls = [
@@ -699,26 +714,28 @@ async def chat(req: ChatRequest):
             if hasattr(part, "function_call") and part.function_call
         ]
 
-        followup_contents = None
+        followup_turns = None
         if calls:
             resultados_tools = await asyncio.gather(*[
                 _executar_ferramenta(call.name, dict(call.args), user_id)
                 for call in calls
             ])
             resumo_tecnico = "\n".join(resultados_tools)
-            followup_contents = (
-                f"Você acabou de executar com sucesso as seguintes ações. "
-                f"Resultado interno: {resumo_tecnico}. "
-                f"Confirme de forma natural e elegante para o Chefe, "
-                f"sem mostrar IDs técnicos, status internos ou colchetes."
-            )
+            followup_turns = list(contents) + [{
+                "role": "user",
+                "parts": [{"text": (
+                    f"Ações executadas. Resultado interno: {resumo_tecnico}. "
+                    f"Responda ao Chefe de forma natural e elegante, "
+                    f"sem IDs técnicos, colchetes ou status internos. Máximo 2 linhas."
+                )}],
+            }]
 
         loop = asyncio.get_event_loop()
 
         async def generate():
             text_parts = []
 
-            if followup_contents:
+            if followup_turns:
                 # Streaming real do followup via thread worker + Queue
                 q: asyncio.Queue = asyncio.Queue()
 
@@ -726,8 +743,11 @@ async def chat(req: ChatRequest):
                     try:
                         for chunk in gemini.models.generate_content_stream(
                             model="gemini-2.5-flash",
-                            config={"system_instruction": system},
-                            contents=followup_contents,
+                            config={
+                                "system_instruction": system,
+                                "thinking_config": {"thinking_budget": 512},
+                            },
+                            contents=followup_turns,
                         ):
                             t = getattr(chunk, "text", "") or ""
                             if t:
