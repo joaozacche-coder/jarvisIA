@@ -518,12 +518,36 @@ async def _fetch_context_data(data_type: str, user_id: str, tarefas, agora):
                 for t in (tasks or [])[:5]
             ]
         if data_type == "finance":
-            txns = await sb.listar_entries(user_id=user_id, type="transaction", limit=100)
+            from datetime import timedelta as _td
+            txns = await sb.listar_entries(user_id=user_id, type="transaction", limit=200)
             if isinstance(txns, Exception) or not txns:
-                return {"saldo": 0, "receitas": 0, "despesas": 0}
-            rec = sum(float(t.get("content", {}).get("amount", 0)) for t in txns if t.get("content", {}).get("transaction_type") == "receita")
-            desp = sum(float(t.get("content", {}).get("amount", 0)) for t in txns if t.get("content", {}).get("transaction_type") == "despesa")
-            return {"saldo": round(rec - desp, 2), "receitas": round(rec, 2), "despesas": round(desp, 2)}
+                return {"saldo": 0, "receitas": 0, "despesas": 0, "receitas_delta": 0, "despesas_delta": 0}
+            first_curr = agora.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            first_prev = (first_curr - _td(days=1)).replace(day=1)
+            rec = desp = curr_rec = curr_desp = prev_rec = prev_desp = 0.0
+            for t in txns:
+                c = t.get("content", {}) or {}
+                amt = float(c.get("amount") or 0)
+                tx_type = c.get("transaction_type", "")
+                if tx_type == "receita": rec += amt
+                elif tx_type == "despesa": desp += amt
+                date_str = (c.get("date") or t.get("created_at", ""))[:10]
+                try:
+                    from datetime import datetime as _dtp
+                    tx_date = _dtp.strptime(date_str, "%Y-%m-%d")
+                    if tx_date >= first_curr:
+                        if tx_type == "receita": curr_rec += amt
+                        elif tx_type == "despesa": curr_desp += amt
+                    elif tx_date >= first_prev:
+                        if tx_type == "receita": prev_rec += amt
+                        elif tx_type == "despesa": prev_desp += amt
+                except Exception:
+                    pass
+            return {
+                "saldo": round(rec - desp, 2), "receitas": round(rec, 2), "despesas": round(desp, 2),
+                "receitas_delta": round(curr_rec - prev_rec, 2),
+                "despesas_delta": round(curr_desp - prev_desp, 2),
+            }
         if data_type == "events":
             events = await sb.listar_entries(user_id=user_id, type="event", limit=50)
             if isinstance(events, Exception) or not events:
@@ -730,6 +754,8 @@ async def chat(req: ChatRequest):
             # Detecta contexto e busca dados para mini-card
             full_text = "".join(text_parts)
             data_type = _detect_data_type(req.message, full_text, calls)
+            if data_type:
+                yield f"data: {_json.dumps({'data_type_hint': data_type})}\n\n"
             ctx_data = await _fetch_context_data(data_type, user_id, tarefas, agora) if data_type else None
 
             done_evt: dict = {"done": True}
